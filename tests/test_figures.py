@@ -95,6 +95,37 @@ def test_no_figure_module_names_a_cache_directory():
                 f"{path.name} names a cache directory ({name}); use paths.cache_dir()"
 
 
+def test_every_module_imports_without_any_data():
+    """Importing must never require a cache to exist.
+
+    Three build stages used to read ``eval_set.npz`` at module scope, so
+    ``import specsrbench.build.tune`` raised on any machine without the data.
+    That broke the API documentation build, and would have broken the import
+    for anyone who installed the package and had not built a cache yet.
+
+    Run in a subprocess with the paths pointed at nothing, because the modules
+    are already imported in this one.
+    """
+    import os
+    import subprocess
+    import sys
+
+    from conftest import REPO
+
+    mods = ["specsrbench", "specsrbench.cli", "specsrbench.classical",
+            "specsrbench.data", "specsrbench.figures",
+            "specsrbench.build.predictions", "specsrbench.build.sets",
+            "specsrbench.build.lsf", "specsrbench.build.tune",
+            "specsrbench.build.classical_cache", "specsrbench.build.lines"]
+    env = dict(os.environ,
+               SPECSRBENCH_CACHE="/nonexistent", SPECSRBENCH_SETS="/nonexistent",
+               PYTHONPATH=str(REPO / "src"))
+    r = subprocess.run([sys.executable, "-c",
+                        "import " + ", ".join(mods)],
+                       capture_output=True, text=True, env=env, timeout=180)
+    assert r.returncode == 0, f"import failed with no data present:\n{r.stderr[-2000:]}"
+
+
 # ── end to end ────────────────────────────────────────────────────────────────
 @pytest.mark.slow
 @pytest.mark.parametrize("name", [f for f in FIGURES if f != "toy"])

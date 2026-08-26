@@ -70,11 +70,23 @@ RETAIN = {"tikhonov": dict(lam=10.0, segment_len=512, overlap=128)}
 SNR_FRAC = 0.9
 LINES = {"Halpha": 0.6563, "OIII5007": 0.5007, "Hbeta": 0.4861, "OII3727": 0.3727}
 
-TUNE = require_npz(SRC / "tune_set.npz", "specsrbench build sets")
-EVAL = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
-WAVE = np.asarray(EVAL["wave"], dtype=np.float64)
-
-SIGMA_PIX, KERNEL_SRC = C.load_sigma_pix(OUT, EVAL)
+# ── inputs ────────────────────────────────────────────────────────────────────
+# Loaded by `_load()` at the top of `main()`, not at import.  Importing a module
+# must not require a cache to exist: it made three modules un-importable on any
+# machine without the data, which broke the API documentation build and would
+# have broken `from specsrbench.build import tune` for everyone else.
+#
+# The names stay module-level globals rather than becoming a context object
+# because the worker functions below close over them and are dispatched through
+# `multiprocessing.Pool`.  On fork, a worker inherits whatever the parent had
+# set by the time the pool was created, which is after `_load()` has run.
+TUNE = EVAL = WAVE = SIGMA_PIX = KERNEL_SRC = None
+X_LOW = X_HIGH = VALID = Z = None
+CALIB = C_LOW = C_HIGH = C_Z = None
+_MU = None
+_HR_FITS = None
+PAIR_IDX = None
+PAIR_BASELINE = 0.0
 
 
 def _zscore(a):
@@ -83,10 +95,6 @@ def _zscore(a):
     return (a - a.mean(axis=1, keepdims=True)) / s
 
 
-X_LOW = _zscore(TUNE["flux_low"])
-X_HIGH = _zscore(TUNE["flux_high"])
-VALID = np.asarray(TUNE["valid_high"], dtype=bool)
-Z = np.asarray(TUNE["z"], dtype=np.float64)
 
 
 # ── metrics ───────────────────────────────────────────────────────────────────
@@ -105,12 +113,6 @@ def _fit_one(job):
     return fit_gauss(WAVE, y, mu0)
 
 
-# The reference lines do not depend on the candidate parameters, so fit them
-# once.  Refitting them per candidate was ~10,700 redundant curve_fit calls.
-_MU = [(i, rest * (1.0 + Z[i]))
-       for i in range(X_HIGH.shape[0]) for _line, rest in LINES.items()
-       if WAVE.min() + 0.05 < rest * (1.0 + Z[i]) < WAVE.max() - 0.05]
-_HR_FITS = None
 
 
 def _hr_fits(pool):
@@ -148,10 +150,6 @@ def line_stats(pred, pool):
 # there -- and the window is [OIII] > 3.0 um, where calibration against the
 # evaluation set reproduces its pass/fail decision at every tested setting.
 # A narrower 3.3 um window leaves too few spectra and disagrees.
-CALIB = require_npz(SRC / "calib_set.npz", "specsrbench build sets")
-C_LOW = _zscore(CALIB["flux_low"])
-C_HIGH = _zscore(CALIB["flux_high"])
-C_Z = np.asarray(CALIB["z"], dtype=np.float64)
 PAIR_MIN_UM = 3.0
 
 
@@ -166,10 +164,36 @@ def _pair_resolved(y, z_i):
     return len(pk) >= 2
 
 
-PAIR_IDX = [i for i in np.where(0.5007 * (1.0 + C_Z) > PAIR_MIN_UM)[0]
-            if _pair_resolved(C_HIGH[i], C_Z[i])]
-PAIR_BASELINE = (float(np.mean([_pair_resolved(C_LOW[i], C_Z[i]) for i in PAIR_IDX]))
-                 if PAIR_IDX else 0.0)
+def _load():
+    """Read this stage's inputs into the module globals."""
+    global TUNE, EVAL, WAVE, SIGMA_PIX, KERNEL_SRC, X_LOW, X_HIGH, VALID, Z
+    global CALIB, C_LOW, C_HIGH, C_Z, _MU, PAIR_IDX, PAIR_BASELINE
+
+    TUNE = require_npz(SRC / "tune_set.npz", "specsrbench build sets")
+    EVAL = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
+    WAVE = np.asarray(EVAL["wave"], dtype=np.float64)
+    SIGMA_PIX, KERNEL_SRC = C.load_sigma_pix(OUT, EVAL)
+
+    X_LOW = _zscore(TUNE["flux_low"])
+    X_HIGH = _zscore(TUNE["flux_high"])
+    VALID = np.asarray(TUNE["valid_high"], dtype=bool)
+    Z = np.asarray(TUNE["z"], dtype=np.float64)
+
+    # The reference lines do not depend on the candidate parameters, so fit
+    # them once.  Refitting per candidate was ~10,700 redundant curve_fit calls.
+    _MU = [(i, rest * (1.0 + Z[i]))
+           for i in range(X_HIGH.shape[0]) for _line, rest in LINES.items()
+           if WAVE.min() + 0.05 < rest * (1.0 + Z[i]) < WAVE.max() - 0.05]
+
+    CALIB = require_npz(SRC / "calib_set.npz", "specsrbench build sets")
+    C_LOW = _zscore(CALIB["flux_low"])
+    C_HIGH = _zscore(CALIB["flux_high"])
+    C_Z = np.asarray(CALIB["z"], dtype=np.float64)
+
+    PAIR_IDX = [i for i in np.where(0.5007 * (1.0 + C_Z) > PAIR_MIN_UM)[0]
+                if _pair_resolved(C_HIGH[i], C_Z[i])]
+    PAIR_BASELINE = (float(np.mean([_pair_resolved(C_LOW[i], C_Z[i])
+                                    for i in PAIR_IDX])) if PAIR_IDX else 0.0)
 
 
 def pair_survival(fn, pool, src=None, with_z=False, **kw):
@@ -285,9 +309,13 @@ def main(argv=None) -> int:
                     help="print what would be read and written, run nothing")
     args = ap.parse_args([] if argv is None else argv)
     NPROC = args.nproc
+    global SRC, OUT
+    SRC, OUT = paths.sets_dir(), paths.cache_dir()
     if args.dry_run:
         print(f"  reads  {SRC}\n  writes {OUT}\n  nproc  {NPROC}")
         return 0
+
+    _load()
 
     OUT.mkdir(exist_ok=True)
     print(f"Tuning on {X_LOW.shape[0]} spectra x {X_LOW.shape[1]} px")

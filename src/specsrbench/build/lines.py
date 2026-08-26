@@ -37,16 +37,45 @@ SRC = paths.sets_dir()
 OUT = paths.cache_dir()
 NPROC = 24        # this box is shared; leave headroom
 
-E = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
-WAVE = np.asarray(E["wave"], dtype=np.float64)
-DPIX = np.gradient(WAVE)
-X_LOW = np.asarray(E["x_low"], dtype=np.float64)
-X_HIGH = np.asarray(E["x_high"], dtype=np.float64)
-VALID = np.asarray(E["valid_high"], dtype=bool)
-Z = np.asarray(E["z_true"], dtype=np.float64)
-HI_M = np.asarray(E["hi_mean"], dtype=np.float64)
-HI_S = np.asarray(E["hi_std"], dtype=np.float64)
-N = X_LOW.shape[0]
+
+
+# ── inputs ────────────────────────────────────────────────────────────────────
+# Loaded by `_load()` at the top of `main()`, not at import.  Importing a module
+# must not require a cache to exist: it made three modules un-importable on any
+# machine without the data, which broke the API documentation build and would
+# have broken `from specsrbench.build import tune` for everyone else.
+#
+# The names stay module-level globals rather than becoming a context object
+# because the worker functions below close over them and are dispatched through
+# `multiprocessing.Pool`.  On fork, a worker inherits whatever the parent had
+# set by the time the pool was created, which is after `_load()` has run.
+E = None
+WAVE = None
+DPIX = None
+X_LOW = None
+X_HIGH = None
+VALID = None
+Z = None
+HI_M = None
+HI_S = None
+N = None
+
+
+def _load():
+    """Read this stage's inputs into the module globals."""
+    global E, WAVE, DPIX, X_LOW, X_HIGH, VALID, Z, HI_M, HI_S, N
+    E = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
+    WAVE = np.asarray(E["wave"], dtype=np.float64)
+    DPIX = np.gradient(WAVE)
+    X_LOW = np.asarray(E["x_low"], dtype=np.float64)
+    X_HIGH = np.asarray(E["x_high"], dtype=np.float64)
+    VALID = np.asarray(E["valid_high"], dtype=bool)
+    Z = np.asarray(E["z_true"], dtype=np.float64)
+    HI_M = np.asarray(E["hi_mean"], dtype=np.float64)
+    HI_S = np.asarray(E["hi_std"], dtype=np.float64)
+    N = X_LOW.shape[0]
+
+
 
 LINES = [("Halpha", 0.6563), ("OIII5007", 0.5007),
          ("Hbeta", 0.4861), ("OII3727", 0.3727)]
@@ -130,9 +159,13 @@ def main(argv=None) -> int:
                     help="print what would be read and written, run nothing")
     args = ap.parse_args([] if argv is None else argv)
     NPROC = args.nproc
+    global SRC, OUT
+    SRC, OUT = paths.sets_dir(), paths.cache_dir()
     if args.dry_run:
         print(f"  reads  {SRC}\n  writes {OUT}\n  nproc  {NPROC}")
         return 0
+
+    _load()
 
     OUT.mkdir(exist_ok=True)
     print(f"Assembling drop-in cache in {OUT}  ({N} spectra x {len(WAVE)} px)\n")

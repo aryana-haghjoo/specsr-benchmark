@@ -72,15 +72,29 @@ FALLBACK_TUNED = {
                      sideband_nsigma=2.0, width_scale=0.2),
 }
 
-_params_path = OUT / "classical_params.json"
-if _params_path.exists():
-    TUNER_RECORD = json.loads(_params_path.read_text())
-    TUNED = {k: dict(v) for k, v in TUNER_RECORD["tuned"].items()}
-    PARAMS_SRC = "cache_logR_tuned/classical_params.json"
-else:                                                    # pragma: no cover
-    TUNER_RECORD = {}
-    TUNED = {k: dict(v) for k, v in FALLBACK_TUNED.items()}
-    PARAMS_SRC = "FALLBACK -- run `specsrbench build tune` first"
+TUNER_RECORD: dict = {}
+TUNED: dict = {}
+PARAMS_SRC = ""
+
+
+def _load_params():
+    """The parameters the caches are built with, and where they came from.
+
+    Resolved when the stage runs rather than when the module is imported, so
+    that pointing SPECSRBENCH_CACHE somewhere else actually changes which
+    parameters are read instead of silently reusing whichever directory
+    happened to be current at import.
+    """
+    global TUNER_RECORD, TUNED, PARAMS_SRC
+    params_path = OUT / "classical_params.json"
+    if params_path.exists():
+        TUNER_RECORD = json.loads(params_path.read_text())
+        TUNED = {k: dict(v) for k, v in TUNER_RECORD["tuned"].items()}
+        PARAMS_SRC = str(params_path)
+    else:                                                # pragma: no cover
+        TUNER_RECORD = {}
+        TUNED = {k: dict(v) for k, v in FALLBACK_TUNED.items()}
+        PARAMS_SRC = "FALLBACK -- run `specsrbench build tune` first"
 
 # what paper 2 currently publishes, carried over from the linear grid
 AS_PUBLISHED = {
@@ -91,29 +105,52 @@ AS_PUBLISHED = {
     "tv":       dict(lam=0.02, n_iter=30),
 }
 
-E = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
-WAVE = np.asarray(E["wave"], dtype=np.float64)
-SIGMA_PIX, KERNEL_SRC = C.load_sigma_pix(OUT, E)
-X_LOW = np.asarray(E["x_low"], dtype=np.float64)
-X_HIGH = np.asarray(E["x_high"], dtype=np.float64)
-VALID = np.asarray(E["valid_high"], dtype=bool)
-Z = np.asarray(E["z_true"], dtype=np.float64)
-HI_M = np.asarray(E["hi_mean"], dtype=np.float64)
-HI_S = np.asarray(E["hi_std"], dtype=np.float64)
-
-from specsr.models.lines import LINE_LIST_REST_AA  # noqa: E402
+# ── inputs ────────────────────────────────────────────────────────────────────
+# Loaded by `_load()` at the top of `main()`, not at import.  Importing a module
+# must not require a cache to exist: it made three modules un-importable on any
+# machine without the data, which broke the API documentation build and would
+# have broken `from specsrbench.build import ...` for everyone else.
+#
+# The names stay module-level globals rather than becoming a context object
+# because the worker functions below close over them and are dispatched through
+# `multiprocessing.Pool`.  On fork, a worker inherits whatever the parent had
+# set by the time the pool was created, which is after `_load()` has run.
+E = WAVE = SIGMA_PIX = KERNEL_SRC = None
+X_LOW = X_HIGH = VALID = Z = HI_M = HI_S = MF_LINES = None
 
 
 def is_emission_template(name):
+    """Line-list entries the matched filter writes back: emission only.
+
+    Breaks and absorption features are excluded -- a matched filter that places
+    a positive template at a Balmer break is fitting a step with a Gaussian.
+    """
     excluded = ("Lyman_limit", "Balmer_break", "D4000_break", "CaK", "CaH",
                 "Gband", "Mg_b", "NaD", "DIB", "TiO", "FeII_UV",
                 "FeII_opt_blend", "MnII", "MgI", "CaII_triplet")
     return not name.startswith(excluded)
 
 
-MF_LINES = np.asarray(
-    [w for n, w in LINE_LIST_REST_AA if is_emission_template(n)],
-    dtype=np.float32) * 1e-4
+def _load():
+    """Read this stage's inputs into the module globals."""
+    global E, WAVE, SIGMA_PIX, KERNEL_SRC, X_LOW, X_HIGH, VALID, Z
+    global HI_M, HI_S, MF_LINES
+    # Imported here rather than at module scope: specsr is an optional extra,
+    # and only this stage needs its line list.
+    from specsr.models.lines import LINE_LIST_REST_AA
+
+    E = require_npz(SRC / "eval_set.npz", "specsrbench build sets")
+    WAVE = np.asarray(E["wave"], dtype=np.float64)
+    SIGMA_PIX, KERNEL_SRC = C.load_sigma_pix(OUT, E)
+    X_LOW = np.asarray(E["x_low"], dtype=np.float64)
+    X_HIGH = np.asarray(E["x_high"], dtype=np.float64)
+    VALID = np.asarray(E["valid_high"], dtype=bool)
+    Z = np.asarray(E["z_true"], dtype=np.float64)
+    HI_M = np.asarray(E["hi_mean"], dtype=np.float64)
+    HI_S = np.asarray(E["hi_std"], dtype=np.float64)
+    MF_LINES = np.asarray(
+        [w for n, w in LINE_LIST_REST_AA if is_emission_template(n)],
+        dtype=np.float32) * 1e-4
 
 
 def _w(s, **k):
@@ -188,9 +225,14 @@ def main(argv=None) -> int:
                     help="print what would be read and written, run nothing")
     args = ap.parse_args([] if argv is None else argv)
     NPROC = args.nproc
+    global SRC, OUT
+    SRC, OUT = paths.sets_dir(), paths.cache_dir()
     if args.dry_run:
         print(f"  reads  {SRC}\n  writes {OUT}\n  nproc  {NPROC}")
         return 0
+
+    _load_params()
+    _load()
 
     OUT.mkdir(exist_ok=True)
     print(f"Rebuilding classical caches on {X_LOW.shape[0]} held-out spectra "
