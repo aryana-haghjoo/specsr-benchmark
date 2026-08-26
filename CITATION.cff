@@ -1,0 +1,56 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "specsrbench: benchmarking deep learning against classical deconvolution for galaxy spectral super-resolution"
+abstract: >-
+  Seven classical deconvolution methods benchmarked against a deep-learning
+  super-resolution pipeline on 572 held-out JWST/NIRSpec prism spectra from
+  JADES, with the four guards needed to keep mean absolute error from rewarding
+  a method that reconstructs badly.
+type: software
+license: MIT
+repository-code: "https://github.com/aryana-haghjoo/specsr-benchmark"
+url: "https://aryana-haghjoo.github.io/specsr-benchmark/"
+version: 0.1.1
+date-released: "2026-08-25"
+keywords:
+  - astronomy
+  - spectroscopy
+  - super-resolution
+  - deconvolution
+  - benchmark
+  - JWST
+  - NIRSpec
+  - JADES
+authors:
+  - family-names: Haghjoo
+    given-names: Aryana
+    orcid: "https://orcid.org/0009-0006-3071-7143"
+    affiliation: "Department of Physics and Astronomy, University of California, Riverside"
+  # ORCID deliberately omitted: the identifier carried in the manuscript for
+  # this author fails the ISO 7064 MOD 11-2 checksum ORCID uses, so it is a
+  # placeholder rather than a real record. A wrong ORCID here would be a
+  # permanent, citable misattribution, quite possibly to a different person.
+  - family-names: Hemmati
+    given-names: Shoubaneh
+    affiliation: "IPAC, California Institute of Technology"
+  - family-names: Mobasher
+    given-names: Bahram
+    orcid: "https://orcid.org/0000-0001-5846-4404"
+    affiliation: "Department of Physics and Astronomy, University of California, Riverside"
+references:
+  - type: article
+    title: >-
+      Learning to See Sharper: A Physics-Informed Artificial Intelligence
+      Framework for Super-Resolving Galaxy Spectra
+    authors:
+      - family-names: Haghjoo
+        given-names: Aryana
+      - family-names: Hemmati
+        given-names: Shoubaneh
+      - family-names: Mobasher
+        given-names: Bahram
+    year: 2026
+    identifiers:
+      - type: other
+        value: "arXiv:2603.18357"
+    url: "https://arxiv.org/abs/2603.18357"

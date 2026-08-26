@@ -1,5 +1,10 @@
 # specsrbench
 
+[![tests](https://github.com/aryana-haghjoo/specsr-benchmark/actions/workflows/tests.yml/badge.svg)](https://github.com/aryana-haghjoo/specsr-benchmark/actions/workflows/tests.yml)
+[![docs](https://github.com/aryana-haghjoo/specsr-benchmark/actions/workflows/docs.yml/badge.svg)](https://aryana-haghjoo.github.io/specsr-benchmark/)
+[![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/aryana-haghjoo/specsr-benchmark)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **Benchmarking deep learning against classical deconvolution for galaxy
 spectral super-resolution.**
 
@@ -20,7 +25,7 @@ Not on PyPI yet. Install the wheel from the
 [latest release](https://github.com/aryana-haghjoo/specsr-benchmark/releases/latest):
 
 ```bash
-pip install https://github.com/aryana-haghjoo/specsr-benchmark/releases/download/v0.1.0/specsrbench-0.1.0-py3-none-any.whl
+pip install https://github.com/aryana-haghjoo/specsr-benchmark/releases/download/v0.1.1/specsrbench-0.1.1-py3-none-any.whl
 ```
 
 or from source:
@@ -194,10 +199,17 @@ scripts/        talk figures, which are not paper figures
 tests/
 ```
 
+## Documentation
+
+Full documentation, including the API reference, is at
+**<https://aryana-haghjoo.github.io/specsr-benchmark/>**.
+
 ## Citing
 
-Paper 2 is in preparation. Until it appears, cite the package and
-[Haghjoo et al. 2026](https://arxiv.org/abs/2603.18357) for the models.
+Paper 2 is in preparation. Until it appears, cite the archived software release
+and [Haghjoo et al. 2026](https://arxiv.org/abs/2603.18357) for the models.
+`CITATION.cff` carries the machine-readable metadata; GitHub's "Cite this
+repository" button reads it.
 
 ## License
 

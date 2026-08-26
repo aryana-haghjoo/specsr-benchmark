@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "specsrbench"
-version = "0.1.0"
+version = "0.1.1"
 description = "Benchmarking deep learning against classical deconvolution for galaxy spectral super-resolution"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -59,6 +59,7 @@ dev = [
     "pytest-cov>=4.1",
     "ruff>=0.5",
 ]
+docs = ["sphinx>=7.2", "furo", "myst-parser"]
 all = ["specsrbench[ml,lsf]"]
 
 [project.urls]
@@ -68,6 +69,7 @@ Issues = "https://github.com/aryana-haghjoo/specsr-benchmark/issues"
 "Companion package" = "https://github.com/aryana-haghjoo/specsr"
 "Model weights" = "https://huggingface.co/aryana-haghjoo/specsr"
 "Paper 1" = "https://arxiv.org/abs/2603.18357"
+Documentation = "https://aryana-haghjoo.github.io/specsr-benchmark/"
 
 [project.scripts]
 specsrbench = "specsrbench.cli:main"
@@ -81,6 +83,7 @@ include = [
     "/tests",
     "/scripts",
     "/docs",
+    "/requirements.txt",
     "/README.md",
     "/LICENSE",
 ]

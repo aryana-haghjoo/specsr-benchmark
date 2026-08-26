@@ -2,12 +2,14 @@
 
 Everything downstream reads one of these three, and which one is not a detail:
 
-``eval_set.npz``   572 held-out originals.  Every published number.
-``tune_set.npz``    40 galaxies from the *training* side.  The classical
-                    parameters are chosen on this and nowhere else.
-``calib_set.npz``  400 galaxies, also from the training side.  Guard 4 --
-                    whether a resolvable [O III] pair survives a filter -- is
-                    measured on these.
+``eval_set.npz``
+    572 held-out originals.  Every published number.
+``tune_set.npz``
+    40 galaxies from the *training* side.  The classical parameters are chosen
+    on this and nowhere else.
+``calib_set.npz``
+    400 galaxies, also from the training side.  Guard 4 -- whether a resolvable
+    [O III] pair survives a filter -- is measured on these.
 
 The two smaller sets exist because tuning a method on the set you then report
 it on is the same error, one level up, that the group-wise split fixes at the

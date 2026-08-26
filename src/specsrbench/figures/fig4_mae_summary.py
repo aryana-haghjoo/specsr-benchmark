@@ -25,8 +25,8 @@ from ..methods import ORDER, registry
 # panels have less room and write "TV".
 LABELS = {"TV": "Wiener + TV"}
 
-#: E[|N(0, sigma)| / sigma] -- where the uncertainty-normalised panel would sit
-#: for a reconstruction that is perfect up to the reference's own noise.
+#: ``E[|N(0, sigma)| / sigma]`` -- where the uncertainty-normalised panel would
+#: sit for a reconstruction that is perfect up to the reference's own noise.
 GAUSSIAN_ABS_FLOOR = float(np.sqrt(2.0 / np.pi))
 
 N_BOOT = 1000

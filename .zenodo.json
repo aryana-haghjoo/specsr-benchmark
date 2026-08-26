@@ -1,0 +1,51 @@
+{
+  "title": "specsrbench: benchmarking deep learning against classical deconvolution for galaxy spectral super-resolution",
+  "description": "<p>Seven classical deconvolution methods &mdash; cubic interpolation, Wiener, Tikhonov, Wiener + total variation, Richardson&ndash;Lucy, wavelet-sparse FISTA, and a redshift-informed matched filter &mdash; benchmarked against the SR2 deep-learning pipeline of <a href=\"https://arxiv.org/abs/2603.18357\">Haghjoo et al. (2026)</a> on 572 held-out JWST/NIRSpec prism spectra from JADES.</p><p>The package is code only: model weights are fetched from the Hugging Face Hub, and every derived array is rebuilt from the raw JADES DR4 products by <code>specsrbench build all</code>.</p><p>Its headline result is that at the pixel level no method beats cubic interpolation. The deep-learning model leads the raw mean-absolute-error table by 30%, but does so at 0.54 of the reference's amplitude; on a scale-free metric all nine methods fall within 1.2% of each other and it ranks eighth of nine. What survives is that it exceeds the reference's own line signal-to-noise on all four diagnostic lines while recovering 36&ndash;53% of true line amplitudes, at false-detection rates up to 0.44 against 0.09 or below for any classical method.</p><p>The package also documents four independent ways that tuning a restoration method against a noisy reference by mean absolute error produces a method that scores well and reconstructs badly &mdash; smoothing, shrinkage, blurring and merging &mdash; together with a guard for each. That material is not specific to spectra.</p>",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "creators": [
+    {
+      "name": "Haghjoo, Aryana",
+      "affiliation": "Department of Physics and Astronomy, University of California, Riverside",
+      "orcid": "0009-0006-3071-7143"
+    },
+    {
+      "name": "Hemmati, Shoubaneh",
+      "affiliation": "IPAC, California Institute of Technology"
+    },
+    {
+      "name": "Mobasher, Bahram",
+      "affiliation": "Department of Physics and Astronomy, University of California, Riverside",
+      "orcid": "0000-0001-5846-4404"
+    }
+  ],
+  "keywords": [
+    "astronomy",
+    "spectroscopy",
+    "super-resolution",
+    "deconvolution",
+    "benchmark",
+    "JWST",
+    "NIRSpec",
+    "JADES",
+    "emission lines"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/aryana-haghjoo/specsr-benchmark",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "arXiv:2603.18357",
+      "relation": "isDerivedFrom",
+      "scheme": "arxiv"
+    },
+    {
+      "identifier": "https://github.com/aryana-haghjoo/specsr",
+      "relation": "isCompiledBy",
+      "scheme": "url"
+    }
+  ]
+}

@@ -29,6 +29,11 @@
 # Built figures. The point of the package is that these regenerate.
 /figures/
 
+# Sphinx: _build is output, api/generated/ is autosummary output that
+# `autosummary_generate = True` recreates on every build.
+/docs/_build/
+/docs/api/generated/
+
 # Python
 __pycache__/
 *.py[cod]
