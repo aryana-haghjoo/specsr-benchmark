@@ -6,6 +6,7 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/1346826576.svg)](https://doi.org/10.5281/zenodo.22104971)
 [![PyPI](https://img.shields.io/pypi/v/specsrbench)](https://pypi.org/project/specsrbench/)
+[![dataset](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-tutorial%20data-yellow)](https://huggingface.co/datasets/aryana-haghjoo/specsr-benchmark)
 
 **Benchmarking deep learning against classical deconvolution for galaxy
 spectral super-resolution.**
@@ -61,6 +62,30 @@ Getting there took four separate metric traps, each of which had to be closed
 before the benchmark meant anything. They are documented in
 [`docs/GUARDS.md`](docs/GUARDS.md), and they are the part of this repository
 most likely to be useful to someone benchmarking something else.
+
+## Start here: the tutorial
+
+If you want to see what this does before installing survey data, run the
+notebook. It needs no JADES tree, no GPU and no configuration — 24 held-out
+spectra download from the Hub on first use and everything after that is numpy
+and scipy.
+
+```bash
+pip install specsrbench          # enough: fetching the sample is built in
+jupyter lab tutorials_for_user/01_quickstart.ipynb
+```
+
+It runs all six classical deconvolvers at the tuned parameters, scores them
+against the grating reference alongside the deep-learning prediction, and then
+demonstrates live why the obvious metric reverses the result — see
+[`tutorials_for_user/`](tutorials_for_user/).
+
+```python
+from specsrbench.sample import load_sample
+
+s = load_sample()          # 1.9 MB, cached after the first call
+recon = s.reconstruct()    # all six classical methods, a few seconds
+```
 
 ## Quick start
 
@@ -194,14 +219,20 @@ src/specsrbench/
   data.py       the cache loader every figure shares
   figures/      one module per paper figure
   build/        the six pipeline stages
+  sample.py     the 24-spectrum tutorial sample, fetched from the Hub
 scripts/        talk figures, which are not paper figures
+tutorials_for_user/  the tutorial notebook
 tests/
 ```
 
 ## Documentation
 
 Full documentation, including the API reference, is at
-**<https://aryana-haghjoo.github.io/specsr-benchmark/>**.
+**<https://aryana-haghjoo.github.io/specsr-benchmark/>**, and the tutorial has
+its own [page](https://aryana-haghjoo.github.io/specsr-benchmark/guides/tutorial.html).
+
+The tutorial sample is hosted separately, on the Hub:
+<https://huggingface.co/datasets/aryana-haghjoo/specsr-benchmark>.
 
 ## Citing
 

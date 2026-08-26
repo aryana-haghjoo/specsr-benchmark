@@ -28,18 +28,21 @@ pip install -e .
 
 ## Extras
 
-The base install carries only what the classical baselines and five of the six
-figures need: numpy, scipy, matplotlib, pandas, PyWavelets and scikit-image.
-Installing a deep-learning stack to run a Wiener filter is a bad trade, so
-torch is not a dependency.
+The base install carries what the classical baselines and five of the six
+figures need — numpy, scipy, matplotlib, pandas, PyWavelets, scikit-image — plus
+`huggingface_hub`, so that `pip install specsrbench` is enough to fetch the
+{doc}`tutorial <tutorial>` sample and run the whole benchmark on it. Installing
+a deep-learning stack to run a Wiener filter is a bad trade, so torch is *not* a
+dependency.
 
 | extra | pulls in | needed by |
 |---|---|---|
-| `ml` | torch, `specsr`, huggingface_hub | `specsrbench build predictions`, and figure 1's toy CNN |
+| `tutorial` | jupyterlab | running the tutorial notebook — the *data* needs no extra |
+| `ml` | torch, `specsr` | `specsrbench build predictions`, and figure 1's toy CNN |
 | `lsf` | astropy | `specsrbench build lsf`, which reads raw JADES `x1d` products |
 | `dev` | pytest, ruff | the test suite |
 | `docs` | sphinx, furo, myst-parser | this site |
-| `all` | `ml` + `lsf` | |
+| `all` | `ml` + `lsf` + `tutorial` | |
 
 ```bash
 pip install -e '.[all]'

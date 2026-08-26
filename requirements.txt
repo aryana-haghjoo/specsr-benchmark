@@ -10,6 +10,7 @@ pandas==2.3.1
 tqdm==4.67.1
 PyWavelets==1.8.0        # wavelet-sparse FISTA baseline
 scikit-image==0.26.0     # denoise_tv_chambolle, the TV prox
+huggingface_hub==1.28.0  # fetching the tutorial sample; base dependency
 
 # Figure 1 trains a small 1D CNN inline to make its learned panel, so it needs
 # torch even though the other five figures do not. The +cu128 build is what the

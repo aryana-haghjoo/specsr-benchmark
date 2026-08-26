@@ -13,6 +13,7 @@ objects twice, which Sphinx reports as a duplicate description.
    specsrbench.metrics
    specsrbench.classical
    specsrbench.data
+   specsrbench.sample
    specsrbench.style
    specsrbench.cli
    specsrbench.figures

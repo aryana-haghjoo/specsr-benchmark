@@ -67,6 +67,7 @@ for Super-Resolving Galaxy Spectra.*
 :caption: Guides
 
 guides/installation
+guides/tutorial
 guides/figures
 guides/rebuilding
 guides/guards

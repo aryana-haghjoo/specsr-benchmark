@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "specsrbench"
-version = "0.1.1"
+version = "0.1.2"
 description = "Benchmarking deep learning against classical deconvolution for galaxy spectral super-resolution"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -44,12 +44,24 @@ dependencies = [
     "PyWavelets>=1.4",      # the wavelet-sparse FISTA baseline
     "scikit-image>=0.22",   # denoise_tv_chambolle, the TV prox
     "tqdm>=4.65",
+    # Fetching the tutorial sample. A base dependency rather than an extra so
+    # that `pip install specsrbench` is enough to run `load_sample()`: the
+    # tutorial is the first thing most people will try, and an install that
+    # cannot reach its own sample data is a poor first experience. Pure Python,
+    # no numpy constraint, so it does not disturb the pin above.
+    "huggingface_hub>=0.23",
 ]
 
 [project.optional-dependencies]
 # The ML arm: running SR1/ZHead/SR2 over the held-out split from Hub weights.
 # Only `specsrbench build predictions` and figure 1's toy CNN need this.
-ml = ["torch>=2.0", "specsr>=1.0", "huggingface_hub>=0.23"]
+# huggingface_hub is not repeated here: it is a base dependency.
+ml = ["torch>=2.0", "specsr>=1.0"]
+# Only what it takes to *run* a notebook. Fetching the sample needs nothing
+# extra -- the base install can already do it, and the archive carries the SR2
+# predictions precomputed and the matched filter's line list, so every method in
+# the notebook runs without torch or `specsr`.
+tutorial = ["jupyterlab>=4.0"]
 # Re-deriving the instrument LSF, which reads raw JADES x1d products.
 # Pinned below 8 because astropy 8 requires numpy>=2, and the numpy pin above
 # is what every cached array and figure was verified against.
@@ -60,7 +72,7 @@ dev = [
     "ruff>=0.5",
 ]
 docs = ["sphinx>=7.2", "furo", "myst-parser"]
-all = ["specsrbench[ml,lsf]"]
+all = ["specsrbench[ml,lsf,tutorial]"]
 
 [project.urls]
 Homepage = "https://github.com/aryana-haghjoo/specsr-benchmark"
@@ -83,6 +95,7 @@ include = [
     "/tests",
     "/scripts",
     "/docs",
+    "/tutorials_for_user",
     "/requirements.txt",
     "/README.md",
     "/LICENSE",

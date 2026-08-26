@@ -62,18 +62,49 @@ def test_figures_resolve_by_number_and_name():
         resolve("7")
 
 
-def test_no_notebooks_remain():
+def test_no_figure_notebooks_remain():
     """The figures are modules now; a stray notebook is a second source of truth.
 
     Notebooks store their outputs next to their code, so a stale number in one
     reads as data in a diff.  Every figure notebook became a module in
     ``specsrbench.figures`` on 2026-08-25; nothing should reintroduce one.
+
+    ``tutorials_for_user/`` is deliberately exempt and separately guarded below.
+    A user tutorial is not a second source of truth for a figure -- it produces
+    no paper artefact and the paper does not read it.  The exemption is by
+    directory rather than by filename so that a figure notebook cannot slip back
+    in under a tutorial-sounding name somewhere else in the tree.
     """
     from conftest import REPO
 
+    tutorials = REPO / "tutorials_for_user"
     stray = [p for p in REPO.rglob("*.ipynb")
-             if ".ipynb_checkpoints" not in str(p) and "venv" not in str(p)]
+             if ".ipynb_checkpoints" not in str(p) and "venv" not in str(p)
+             and tutorials not in p.parents]
     assert not stray, f"notebooks reintroduced: {[str(p) for p in stray]}"
+
+
+def test_the_tutorial_notebook_produces_no_paper_artefact():
+    """The exemption above holds only while the tutorial stays a tutorial.
+
+    The moment a notebook writes into ``figures/`` or imports a figure module it
+    has become a second way to build a paper artefact, which is exactly what
+    converting the six notebooks to modules was meant to end.
+    """
+    import json
+
+    from conftest import REPO
+
+    nb = REPO / "tutorials_for_user" / "01_quickstart.ipynb"
+    if not nb.exists():
+        pytest.skip("tutorial notebook not present")
+    src = "\n".join("".join(c["source"])
+                     for c in json.loads(nb.read_text())["cells"]
+                     if c["cell_type"] == "code")
+    for banned in ("specsrbench.figures", "figures_dir", "savefig"):
+        assert banned not in src, (
+            f"the tutorial notebook uses {banned!r}; it must not build or write "
+            "a paper figure")
 
 
 def test_no_figure_module_names_a_cache_directory():
