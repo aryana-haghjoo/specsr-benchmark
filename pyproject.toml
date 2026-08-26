@@ -1,0 +1,101 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "specsrbench"
+version = "0.1.0"
+description = "Benchmarking deep learning against classical deconvolution for galaxy spectral super-resolution"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Aryana Haghjoo", email = "ahagh010@ucr.edu" },
+]
+keywords = [
+    "astronomy",
+    "spectroscopy",
+    "super-resolution",
+    "deconvolution",
+    "benchmark",
+    "jwst",
+    "nirspec",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+# Everything needed to run the classical baselines and draw every figure.
+# Deliberately no torch here: seven of the eight methods are pure numpy/scipy,
+# and installing a deep-learning stack to run a Wiener filter is a bad trade.
+dependencies = [
+    "numpy>=1.24,<2",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "PyWavelets>=1.4",      # the wavelet-sparse FISTA baseline
+    "scikit-image>=0.22",   # denoise_tv_chambolle, the TV prox
+    "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+# The ML arm: running SR1/ZHead/SR2 over the held-out split from Hub weights.
+# Only `specsrbench build predictions` and figure 1's toy CNN need this.
+ml = ["torch>=2.0", "specsr>=1.0", "huggingface_hub>=0.23"]
+# Re-deriving the instrument LSF, which reads raw JADES x1d products.
+# Pinned below 8 because astropy 8 requires numpy>=2, and the numpy pin above
+# is what every cached array and figure was verified against.
+lsf = ["astropy>=5.3,<8"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.5",
+]
+all = ["specsrbench[ml,lsf]"]
+
+[project.urls]
+Homepage = "https://github.com/aryana-haghjoo/specsr-benchmark"
+Repository = "https://github.com/aryana-haghjoo/specsr-benchmark"
+Issues = "https://github.com/aryana-haghjoo/specsr-benchmark/issues"
+"Companion package" = "https://github.com/aryana-haghjoo/specsr"
+"Model weights" = "https://huggingface.co/aryana-haghjoo/specsr"
+"Paper 1" = "https://arxiv.org/abs/2603.18357"
+
+[project.scripts]
+specsrbench = "specsrbench.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/specsrbench"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/scripts",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: end-to-end runs (builds every figure); deselect with -m 'not slow'",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "NPY"]

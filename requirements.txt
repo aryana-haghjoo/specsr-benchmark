@@ -1,0 +1,36 @@
+# The exact environment the figures and caches were verified in.
+#
+# `pip install specsrbench` resolves looser bounds from pyproject.toml and is
+# what most people want. This file pins what was actually used, so the figures
+# still rebuild identically during the referee process. Python 3.11.13.
+numpy==1.26.4
+scipy==1.16.1
+matplotlib==3.10.5
+pandas==2.3.1
+tqdm==4.67.1
+PyWavelets==1.8.0        # wavelet-sparse FISTA baseline
+scikit-image==0.26.0     # denoise_tv_chambolle, the TV prox
+
+# Figure 1 trains a small 1D CNN inline to make its learned panel, so it needs
+# torch even though the other five figures do not. The +cu128 build is what the
+# figure was originally made with, on an RTX 5090:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch==2.8.0
+# A CPU-only torch builds the same figure. Either way that one panel moves in
+# the 3rd-4th decimal between runs — cuDNN reduces convolutions in a
+# non-deterministic order — and it is the only figure that is not
+# bit-reproducible. See specsrbench.figures.fig1_toy_methods.
+torch==2.8.0
+
+# Reading raw JADES x1d products, needed only to re-derive the instrument LSF
+# (`specsrbench build lsf`). Pinned to the 7.x series because 8.x requires
+# numpy>=2, and the numpy pin above is what the caches and figures were
+# verified against:
+#   printf 'numpy==1.26.4\nscipy==1.16.1\n' > /tmp/c.txt
+#   pip install -c /tmp/c.txt astropy
+astropy==7.2.2
+
+# Needed only by `specsrbench build predictions`, which runs the ML arm from
+# the Hugging Face Hub.
+# specsr>=1.0            # https://github.com/aryana-haghjoo/specsr
+
+pytest==8.4.1

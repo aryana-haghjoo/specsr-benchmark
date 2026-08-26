@@ -1,0 +1,44 @@
+# The public specsrbench tree ships code only. Everything the figures read is
+# derived data that `specsrbench build all` regenerates from JADES DR4 and the
+# published weights, so none of it belongs in git.
+#
+# This is a separate file from the working .gitignore rather than a filtered
+# copy of it: that one exists mostly to record which large directories are
+# committed *on purpose* in the private repository, and none of them exist
+# here. See scripts/make_public_release.sh.
+#
+# Every directory rule below is anchored with a leading slash, and that is not
+# cosmetic: the build backend honours this file when it decides what goes into
+# the wheel. An unanchored `build/` or `figures/` also matches
+# `src/specsrbench/build/` and `src/specsrbench/figures/`, shipping a package
+# with two of its subpackages missing -- which installs cleanly and then fails
+# on the first import.
+
+# Derived arrays. `specsrbench build all` writes these.
+/cache/
+/cache_logR/
+/cache_logR_tuned/
+*.npy
+*.npz
+
+# Model weights come from the Hugging Face Hub, never from git.
+*.pth
+*.pt
+*.ckpt
+
+# Built figures. The point of the package is that these regenerate.
+/figures/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+/venv/
+.pytest_cache/
+.ruff_cache/
+/build/
+/dist/
+*.egg-info/
+
+# OS
+.DS_Store
