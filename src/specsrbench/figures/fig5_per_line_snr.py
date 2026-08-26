@@ -94,7 +94,7 @@ def build(cache=None, outdir: Path | None = None) -> Path:
     ]
     x_limits = [None, (0, 1.05), (0, 0.75), None]
 
-    for li, (lname, disp, _r) in enumerate(LINES):
+    for li, (_lname, disp, _r) in enumerate(LINES):
         print(f"  {disp:24s} median S/N  SR2 {d['abs_snr']['SR2'][li]:8.1f}"
               f"   HR {d['abs_snr']['HR'][li]:8.1f}"
               f"   FDR SR2 {d['fdr']['SR2'][li]:.3f}")

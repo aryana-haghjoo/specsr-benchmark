@@ -46,13 +46,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 
 import numpy as np
-from scipy.signal import fftconvolve, find_peaks
+from scipy.signal import find_peaks
 
 from .. import classical as C
 from .. import paths
@@ -321,9 +319,9 @@ def main(argv=None) -> int:
         print("[2/6] Tikhonov")
         # refined between lam=3 (amplitude still inflated) and lam=10 (pair
         # merges), which a coarse grid skipped over entirely
-        grid = [dict(lam=l, segment_len=sl, overlap=sl // 4)
+        grid = [dict(lam=lam_, segment_len=sl, overlap=sl // 4)
                 for sl in (512, 1024)
-                for l in (0.1, 1.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0)]
+                for lam_ in (0.1, 1.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0)]
         b = scan("Tikhonov", _t, X_LOW, grid, pool, base_sn, base_fwhm)
         if b:
             results["tikhonov"] = b[1]
@@ -342,15 +340,15 @@ def main(argv=None) -> int:
             results["rl"] = b[1]
 
         print("[4/6] Wavelet-sparse (FISTA)")
-        grid = [dict(lam=l, n_iter=n)
+        grid = [dict(lam=lam_, n_iter=n)
                 for n in (1, 10, 50, 150)
-                for l in (0.005, 0.02, 0.05, 0.1)]
+                for lam_ in (0.005, 0.02, 0.05, 0.1)]
         b = scan("Sparse", _s, X_LOW, grid, pool, base_sn, base_fwhm)
         if b:
             results["sparse"] = b[1]
 
         print("[5/6] Wiener + TV")
-        grid = [dict(lam=l, n_iter=30) for l in (0.002, 0.01, 0.05, 0.1, 0.3)]
+        grid = [dict(lam=lam_, n_iter=30) for lam_ in (0.002, 0.01, 0.05, 0.1, 0.3)]
         wiener_calib = np.array(pool.map(
             partial(_w, **results["wiener"]), [C_LOW[i] for i in PAIR_IDX]))
         b = scan("TV", _tv, wiener, grid, pool, base_sn, base_fwhm,
@@ -365,7 +363,8 @@ def main(argv=None) -> int:
                      sideband_nsigma=2.0, width_scale=ws)
                 for ds in (3.0, 5.0)
                 for ws in (0.05, 0.10, 0.15, 0.20, 0.25)]
-        print(f"  {'setting':46s}{'MAE':>8s}{'std':>7s}{'S/N':>8s}{'FWHM':>8s}{'pair':>6s}  verdict")
+        print(f"  {'setting':46s}{'MAE':>8s}{'std':>7s}{'S/N':>8s}"
+              f"{'FWHM':>8s}{'pair':>6s}  verdict")
         best = None
         for kw in grid:
             pred = np.array(pool.map(partial(_mf, **kw), list(zip(wiener, Z))))
@@ -410,7 +409,7 @@ def main(argv=None) -> int:
     }
     (OUT / "classical_params.json").write_text(json.dumps(payload, indent=2))
     print("\n" + json.dumps(results, indent=2))
-    print(f"\nwrote {(OUT / 'classical_params.json').relative_to(REPO)}")
+    print(f"\nwrote {OUT / 'classical_params.json'}")
     return 0
 
 

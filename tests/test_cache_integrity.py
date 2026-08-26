@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from conftest import CACHE, LINES, METHODS, SRC
+from conftest import LINES, METHODS, SRC
 
 N_EXPECTED = 572
 PIX_EXPECTED = 6671
@@ -74,7 +74,8 @@ def test_split_sets_are_disjoint():
         assert not (a & b), f"tune and eval sets share {len(a & b)} {key} values"
     if (SRC / "calib_set.npz").exists():
         ca = np.load(SRC / "calib_set.npz", allow_pickle=True)
-        shared = set(np.asarray(ev["row_index"]).tolist()) & set(np.asarray(ca["row_index"]).tolist())
+        shared = (set(np.asarray(ev["row_index"]).tolist())
+                  & set(np.asarray(ca["row_index"]).tolist()))
         assert not shared, f"calib and eval share {len(shared)} rows"
 
 
@@ -86,9 +87,9 @@ def test_eval_galaxies_are_unique(eval_set):
 
 def test_fit_params_covers_every_method_and_line(fits):
     for m in METHODS:
-        for l in LINES:
+        for line_key in LINES:
             for k in ("amp", "sigma", "sn"):
-                key = f"{m}_{l}_{k}"
+                key = f"{m}_{line_key}_{k}"
                 assert key in fits.files, f"missing {key}"
                 assert fits[key].shape == (N_EXPECTED,)
 
@@ -96,9 +97,9 @@ def test_fit_params_covers_every_method_and_line(fits):
 def test_line_fits_mostly_succeed(fits):
     """A method whose fits collapse is broken even if the array is present."""
     for m in METHODS:
-        for l in LINES:
-            frac = np.isfinite(fits[f"{m}_{l}_sn"]).mean()
-            assert frac > 0.85, f"{m}/{l}: only {frac:.0%} of fits succeeded"
+        for line_key in LINES:
+            frac = np.isfinite(fits[f"{m}_{line_key}_sn"]).mean()
+            assert frac > 0.85, f"{m}/{line_key}: only {frac:.0%} of fits succeeded"
 
 
 def test_fitted_widths_are_not_pinned_to_the_bound(fits, wave, cache):
@@ -111,17 +112,17 @@ def test_fitted_widths_are_not_pinned_to_the_bound(fits, wave, cache):
     """
     z = np.load(cache / "z_test.npy")
     rest = dict(zip(LINES, (0.6563, 0.5007, 0.4861, 0.3727)))
-    for l in LINES:
-        sig = fits[f"HR target_{l}_sigma"]
+    for line_key in LINES:
+        sig = fits[f"HR target_{line_key}_sigma"]
         ok = np.isfinite(sig)
-        mu = rest[l] * (1.0 + z[ok])
+        mu = rest[line_key] * (1.0 + z[ok])
         dx = np.interp(mu, wave, np.gradient(wave))
         at_bound = (sig[ok] <= 0.5 * dx * 1.01).mean()
         assert at_bound < 0.10, \
-            f"HR {l}: {at_bound:.0%} of fitted widths sit at the fit floor"
+            f"HR {line_key}: {at_bound:.0%} of fitted widths sit at the fit floor"
         # and the old fixed floor must genuinely have been too coarse here
         assert np.median(sig[ok]) < 0.0016, \
-            f"HR {l} median width {np.median(sig[ok]):.5f} um -- grid may not be the log one"
+            f"HR {line_key} median width {np.median(sig[ok]):.5f} um -- grid may not be the log one"
 
 
 # ── the kernel the caches were deconvolved with ───────────────────────────────
@@ -169,6 +170,7 @@ def test_caches_were_built_with_the_parameters_they_record(cache, reconstruction
     derived kernel and the caches were still the pre-retune build.
     """
     import json
+
     from specsrbench import classical as C
 
     params = json.loads((cache / "classical_params.json").read_text())

@@ -99,3 +99,15 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "NPY"]
+
+# `zip(..., strict=)` is right for new code and wrong to add blindly here:
+# several of these zip a fixed grid of axes against a variable number of
+# panels, where the shorter iterable is the point. Reviewed one by one, not
+# switched on in bulk.
+ignore = ["B905"]
+
+[tool.ruff.lint.per-file-ignores]
+# Figure 1 trains its toy CNN with the legacy `np.random` API, seeded exactly
+# as the figure it replaced was. `default_rng` draws a different sequence, so
+# "modernising" it here silently redraws the published panel.
+"src/specsrbench/figures/fig1_toy_methods.py" = ["NPY002"]

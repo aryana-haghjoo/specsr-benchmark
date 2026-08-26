@@ -74,10 +74,11 @@ def main(argv=None) -> int:
 
     out = args.out or (paths.sets_dir() / "ml_predictions_val.npz")
     if args.dry_run:
+        where = (f"local {args.checkpoint_dir}" if args.checkpoint_dir
+                 else "Hugging Face Hub")
         print(f"  would run the specsr chain on split={SPLIT!r}\n"
               f"  dataset  {args.dataset or 'specsr DEFAULT_DATASET'}\n"
-              f"  weights  "
-              f"{'local ' + str(args.checkpoint_dir) if args.checkpoint_dir else 'Hugging Face Hub'}\n"
+              f"  weights  {where}\n"
               f"  writes   {out}")
         return 0
 
@@ -87,7 +88,7 @@ def main(argv=None) -> int:
         raise SystemExit(
             "this stage needs the specsr package and torch:\n"
             "    pip install 'specsrbench[ml]'\n"
-            f"  ({exc})")
+            f"  ({exc})") from exc
 
     dataset = Path(args.dataset) if args.dataset else Path(DEFAULT_DATASET)
     if not dataset.exists():

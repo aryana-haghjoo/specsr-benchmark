@@ -39,7 +39,6 @@ be read as a performance claim.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import matplotlib
@@ -49,7 +48,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
-from scipy.signal import find_peaks, fftconvolve  # noqa: E402
+from scipy.signal import fftconvolve, find_peaks  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "figures" / "talk"
@@ -199,7 +198,7 @@ def run_methods(observed, truth):
         r"$\min_{x}\ \dfrac{1}{2}\|h\ast x-y\|^{2}+\lambda\|Wx\|_{1}$",
         choose(lambda p: C.sparse_wavelet_deconv(observed, sig, lam=p[0],
                                                  n_iter=p[1], n_seg=4),
-               [(l, n) for l in (1e-3, 2e-3, 5e-3, 1e-2, 2e-2)
+               [(lam_, n) for lam_ in (1e-3, 2e-3, 5e-3, 1e-2, 2e-2)
                 for n in (60, 150)], truth))
 
     mf = toy_matched_filter(wiener, [d[0] for d in DOUBLET], 2.5)

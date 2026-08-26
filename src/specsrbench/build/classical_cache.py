@@ -12,11 +12,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
 from functools import partial
 from multiprocessing import Pool
-from pathlib import Path
 
 import numpy as np
 import pandas as pd

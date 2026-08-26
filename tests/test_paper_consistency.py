@@ -13,7 +13,7 @@ import re
 import numpy as np
 import pytest
 
-from conftest import CACHE, REPO, mae, mae_scalefree, std_ratio
+from conftest import CACHE, REPO, mae_scalefree, std_ratio
 
 PAPER = REPO / "paper.tex"
 
@@ -57,7 +57,7 @@ def test_global_table_matches_the_cache(tex, summary):
     body = _table_body(tex)
     seen = 0
     for line in body.splitlines():
-        line = line.strip().rstrip(r"\\").strip()
+        line = line.strip().rstrip("\\").strip()
         if not line or line.startswith("%"):
             continue
         cells = [c.strip() for c in line.split("&")]

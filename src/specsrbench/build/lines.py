@@ -23,10 +23,8 @@ than one that states none.
 from __future__ import annotations
 
 import argparse
-import sys
 import time
 from multiprocessing import Pool
-from pathlib import Path
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -227,7 +225,7 @@ def main(argv=None) -> int:
     with (OUT / "summary_final.csv").open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["Method", "MAE", "MAE_scalefree", "std_ratio"]
-                   + [f"SN_{l}" for l, _ in LINES])
+                   + [f"SN_{ln}" for ln, _ in LINES])
         rows = []
         for label, snl in LABELS:
             a = np.asarray(arrays[label], dtype=np.float64)
@@ -238,13 +236,14 @@ def main(argv=None) -> int:
             rows.append([
                 label,
                 float(np.nanmean(np.nanmean(np.abs(d), axis=1))),
-                float(np.nanmean(np.nanmean(np.abs(np.where(VALID, a * k - X_HIGH, np.nan)), axis=1))),
+                float(np.nanmean(np.nanmean(
+                    np.abs(np.where(VALID, a * k - X_HIGH, np.nan)), axis=1))),
                 float(np.nanstd(np.where(VALID, a, np.nan))) / sdT,
-                *[float(np.nanmedian(snr_data[f"{snl}_{l}"])) for l, _ in LINES],
+                *[float(np.nanmedian(snr_data[f"{snl}_{ln}"])) for ln, _ in LINES],
             ])
         for r in sorted(rows, key=lambda r: r[2]):
             w.writerow([r[0]] + [f"{v:.4f}" for v in r[1:]])
-    print(f"  wrote summary_final.csv")
+    print("  wrote summary_final.csv")
     print(f"\nDone. {OUT}")
     return 0
 

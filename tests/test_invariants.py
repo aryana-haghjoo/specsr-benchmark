@@ -9,8 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from conftest import (CLASSICAL, LINES, STD_RATIO_HI, STD_RATIO_LO,
-                      mae, mae_scalefree, std_ratio)
+from conftest import CLASSICAL, LINES, STD_RATIO_HI, STD_RATIO_LO, mae, mae_scalefree, std_ratio
 
 BASE = "Cubic (LR)"          # the no-deconvolution baseline
 
@@ -47,19 +46,19 @@ def test_classical_methods_do_not_destroy_lines(method, fits):
     at lam=1e6 reached the best MAE with median Halpha S/N of 0.75."""
     key = {"Wiener": "Wiener", "Tikhonov": "Tikhonov", "TV": "TV",
            "R-L": "R-L", "Sparse": "Sparse", "Wiener + MF": "Wiener + MF"}[method]
-    for l in LINES:
-        got = np.nanmedian(fits[f"{key}_{l}_sn"])
-        base = np.nanmedian(fits[f"{BASE}_{l}_sn"])
+    for line_key in LINES:
+        got = np.nanmedian(fits[f"{key}_{line_key}_sn"])
+        base = np.nanmedian(fits[f"{BASE}_{line_key}_sn"])
         assert got >= 0.5 * base, \
-            f"{method}/{l}: median S/N {got:.2f} vs baseline {base:.2f}"
+            f"{method}/{line_key}: median S/N {got:.2f} vs baseline {base:.2f}"
 
 
 # ── guard 3: must not blur ────────────────────────────────────────────────────
 def _fwhm_bias(fits, method):
     bias = []
-    for l in LINES:
-        hr_sn = fits[f"HR target_{l}_sn"]
-        sm, sh = fits[f"{method}_{l}_sigma"], fits[f"HR target_{l}_sigma"]
+    for line_key in LINES:
+        hr_sn = fits[f"HR target_{line_key}_sn"]
+        sm, sh = fits[f"{method}_{line_key}_sigma"], fits[f"HR target_{line_key}_sigma"]
         m = np.isfinite(hr_sn) & (hr_sn > 5) & np.isfinite(sm) & np.isfinite(sh)
         if m.sum():
             bias.append(np.median(2.355 * (sm[m] - sh[m])) * 1000)
@@ -82,6 +81,7 @@ def test_deconvolution_does_not_broaden_lines(method, fits):
 def test_wiener_filter_can_amplify(cache):
     """The shipped Wiener setting must actually deconvolve, not just smooth."""
     import json
+
     import specsrbench.classical  # noqa: F401  (the package must be importable)
     params = json.loads((cache / "classical_params.json").read_text())
     snr = params["tuned"]["wiener"]["snr"]

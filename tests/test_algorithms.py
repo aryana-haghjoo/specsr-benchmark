@@ -9,8 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from specsrbench import classical as C
 from conftest import STD_RATIO_HI, STD_RATIO_LO
+from specsrbench import classical as C
 
 N_PIX = 2048
 SIGMA_PIX = 25.0          # the prism LSF on the log R=4000 grid, in pixels
@@ -124,6 +124,7 @@ def test_rl_preserves_non_negativity(spectrum):
 def _shipped_wiener_params():
     """The Wiener settings actually published, so the test tracks the analysis."""
     import json
+
     from conftest import CACHE
     path = CACHE / "classical_params.json"
     if path.exists():

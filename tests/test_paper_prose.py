@@ -15,7 +15,7 @@ import re
 import numpy as np
 import pytest
 
-from conftest import CACHE, REPO, SRC
+from conftest import REPO, SRC
 
 PAPER = REPO / "paper.tex"
 LINES = ["Halpha", "Hbeta", "OII3727", "OIII5007"]
@@ -122,8 +122,8 @@ def test_detection_fractions(tex, snr):
             v = 100.0 * float(np.nanmean(snr[f"{key}_{line}"] > 5))
             assert f"{v:.1f}\\%" in tex, \
                 f"paper does not state the {key} {line} detection fraction {v:.1f}%"
-    arr = np.array([[100.0 * float(np.nanmean(snr[f"{k}_{l}"] > 5))
-                     for l in ("Hbeta", "OII3727")] for k in CLASSICAL])
+    arr = np.array([[100.0 * float(np.nanmean(snr[f"{k}_{line_key}"] > 5))
+                     for line_key in ("Hbeta", "OII3727")] for k in CLASSICAL])
     lo, hi = arr.min(), arr.max()
     assert f"{lo:.1f}\\%" in tex and f"{hi:.1f}\\%" in tex, \
         f"paper does not state the classical weak-line detection span {lo:.1f}-{hi:.1f}%"
@@ -306,13 +306,13 @@ def test_width_bound_fractions(tex, fits, cache, wave):
     worst, both = {}, 0
     for name, key in (("ML (SR2)", "sr2"), ("HR target", "hr")):
         worst[key] = max(
-            100.0 * float(np.mean(pinned(fits[f"{name}_{l}_sigma"], l)
-                                  [np.isfinite(fits[f"{name}_{l}_sigma"])]))
-            for l in rest)
-    for l in rest:
-        a, b = fits[f"ML (SR2)_{l}_sigma"], fits[f"HR target_{l}_sigma"]
+            100.0 * float(np.mean(pinned(fits[f"{name}_{line_key}_sigma"], line_key)
+                                  [np.isfinite(fits[f"{name}_{line_key}_sigma"])]))
+            for line_key in rest)
+    for line_key in rest:
+        a, b = fits[f"ML (SR2)_{line_key}_sigma"], fits[f"HR target_{line_key}_sigma"]
         ok = np.isfinite(a) & np.isfinite(b)
-        both += int((pinned(a, l) & pinned(b, l) & ok).sum())
+        both += int((pinned(a, line_key) & pinned(b, line_key) & ok).sum())
 
     for key in ("sr2", "hr"):
         assert f"${worst[key]:.1f}\\%$" in tex, \

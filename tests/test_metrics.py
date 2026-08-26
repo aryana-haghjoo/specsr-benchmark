@@ -72,7 +72,7 @@ def test_guard_would_have_rejected_the_shipped_bug(synthetic):
     A Wiener filter at snr=0.8 has DC gain 1/(1+1/0.8) = 0.444.  MAE preferred
     it; the amplitude guard must reject it.
     """
-    from conftest import STD_RATIO_LO, STD_RATIO_HI
+    from conftest import STD_RATIO_HI, STD_RATIO_LO
     pred, truth, mask = synthetic
     dc_gain = 1.0 / (1.0 + 1.0 / 0.8)
     assert dc_gain == pytest.approx(0.4444, abs=1e-3)
