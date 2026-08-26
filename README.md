@@ -14,10 +14,27 @@ The deep-learning side is a separate package,
 [on the Hub](https://huggingface.co/aryana-haghjoo/specsr). This package holds
 the classical baselines, the metrics, the tuning, and the figures.
 
+## Install
+
+Not on PyPI yet. Install the wheel from the
+[latest release](https://github.com/aryana-haghjoo/specsr-benchmark/releases/latest):
+
 ```bash
-pip install specsrbench          # the baselines and the figures
-pip install 'specsrbench[all]'   # + the ML arm and the LSF derivation
+pip install https://github.com/aryana-haghjoo/specsr-benchmark/releases/download/v0.1.0/specsrbench-0.1.0-py3-none-any.whl
 ```
+
+or from source:
+
+```bash
+git clone https://github.com/aryana-haghjoo/specsr-benchmark
+cd specsr-benchmark
+pip install -e .            # the baselines and the figures
+pip install -e '.[all]'     # + the ML arm and the LSF derivation
+```
+
+`[ml]` pulls in torch and `specsr` (needed by `build predictions` and by
+figure 1's toy CNN); `[lsf]` pulls in astropy (needed only to re-derive the
+instrument LSF). Neither is required to draw the other five figures.
 
 ---
 
