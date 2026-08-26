@@ -11,6 +11,13 @@
 **Benchmarking deep learning against classical deconvolution for galaxy
 spectral super-resolution.**
 
+![Seven classical deconvolution methods on a 1-D toy problem, each panel showing one method's reconstruction against the known truth](https://raw.githubusercontent.com/aryana-haghjoo/specsr-benchmark/main/docs/_static/fig_classical_toy.png)
+
+*Every method in the benchmark, on a 1-D toy where the truth is known: a close
+doublet the instrument blends into one blob, and a weak isolated line. Drawn by
+`scripts/make_classical_toy_figure.py` using the same deconvolvers the
+benchmark runs.*
+
 Seven classical deconvolution methods — cubic interpolation, Wiener, Tikhonov,
 Wiener + total variation, Richardson–Lucy, wavelet-sparse FISTA, and a
 redshift-informed matched filter — scored against the SR2 deep-learning
@@ -223,6 +230,7 @@ src/specsrbench/
 scripts/        talk figures, which are not paper figures
 tutorials_for_user/  the tutorial notebook
 tests/
+figures/        where `specsrbench figures all` writes its PDFs
 ```
 
 ## Documentation
