@@ -4,6 +4,7 @@
 [![docs](https://github.com/aryana-haghjoo/specsr-benchmark/actions/workflows/docs.yml/badge.svg)](https://aryana-haghjoo.github.io/specsr-benchmark/)
 [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/aryana-haghjoo/specsr-benchmark)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![DOI](https://zenodo.org/badge/1346826576.svg)](https://doi.org/10.5281/zenodo.22104971)
 
 **Benchmarking deep learning against classical deconvolution for galaxy
 spectral super-resolution.**
@@ -208,6 +209,15 @@ Full documentation, including the API reference, is at
 
 Paper 2 is in preparation. Until it appears, cite the archived software release
 and [Haghjoo et al. 2026](https://arxiv.org/abs/2603.18357) for the models.
+
+Every release is archived on Zenodo:
+
+- **[10.5281/zenodo.22104971](https://doi.org/10.5281/zenodo.22104971)** — cite this one unless you
+  need a specific version. It is the concept DOI and always resolves to the
+  latest release.
+- [10.5281/zenodo.22105099](https://doi.org/10.5281/zenodo.22105099) — v0.1.1 specifically, for
+  when the exact version matters (a result you are reproducing, say).
+
 `CITATION.cff` carries the machine-readable metadata; GitHub's "Cite this
 repository" button reads it.
 

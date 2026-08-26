@@ -8,6 +8,7 @@ abstract: >-
   a method that reconstructs badly.
 type: software
 license: MIT
+doi: "10.5281/zenodo.22104971"
 repository-code: "https://github.com/aryana-haghjoo/specsr-benchmark"
 url: "https://aryana-haghjoo.github.io/specsr-benchmark/"
 version: 0.1.1

@@ -33,6 +33,11 @@
   ],
   "related_identifiers": [
     {
+      "identifier": "10.5281/zenodo.22104971",
+      "relation": "isVersionOf",
+      "scheme": "doi"
+    },
+    {
       "identifier": "https://github.com/aryana-haghjoo/specsr-benchmark",
       "relation": "isSupplementTo",
       "scheme": "url"
