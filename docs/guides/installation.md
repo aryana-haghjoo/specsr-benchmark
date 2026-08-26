@@ -2,7 +2,17 @@
 
 `specsrbench` needs Python 3.10 or newer. It is tested on 3.10, 3.11 and 3.12.
 
-## From the release
+## From PyPI
+
+```bash
+pip install specsrbench
+```
+
+## From a release
+
+Every release also attaches a wheel and an sdist, and each is archived on
+Zenodo with its own DOI. Use these when you need a specific version pinned to a
+citable archive:
 
 ```bash
 pip install https://github.com/aryana-haghjoo/specsr-benchmark/releases/download/v0.1.1/specsrbench-0.1.1-py3-none-any.whl

@@ -5,6 +5,7 @@
 [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://github.com/aryana-haghjoo/specsr-benchmark)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![DOI](https://zenodo.org/badge/1346826576.svg)](https://doi.org/10.5281/zenodo.22104971)
+[![PyPI](https://img.shields.io/pypi/v/specsrbench)](https://pypi.org/project/specsrbench/)
 
 **Benchmarking deep learning against classical deconvolution for galaxy
 spectral super-resolution.**
@@ -22,20 +23,17 @@ the classical baselines, the metrics, the tuning, and the figures.
 
 ## Install
 
-Not on PyPI yet. Install the wheel from the
-[latest release](https://github.com/aryana-haghjoo/specsr-benchmark/releases/latest):
-
 ```bash
-pip install https://github.com/aryana-haghjoo/specsr-benchmark/releases/download/v0.1.1/specsrbench-0.1.1-py3-none-any.whl
+pip install specsrbench          # the baselines and the figures
+pip install 'specsrbench[all]'   # + the ML arm and the LSF derivation
 ```
 
-or from source:
+Or from source, for development:
 
 ```bash
 git clone https://github.com/aryana-haghjoo/specsr-benchmark
 cd specsr-benchmark
-pip install -e .            # the baselines and the figures
-pip install -e '.[all]'     # + the ML arm and the LSF derivation
+pip install -e '.[dev]'
 ```
 
 `[ml]` pulls in torch and `specsr` (needed by `build predictions` and by
