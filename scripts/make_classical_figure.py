@@ -3,7 +3,7 @@
 
     ./venv/bin/python scripts/make_classical_figure.py
 
-Writes ``figures/talk/fig_classical_methods.{pdf,png}``.
+Writes ``paper/figures/talk/fig_classical_methods.{pdf,png}``.
 
 Why a script and not a drawing tool
 -----------------------------------
@@ -37,9 +37,17 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 
+from specsrbench import paths  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 CACHE = REPO / "cache_logR_tuned"
-OUT = REPO / "figures" / "talk"
+
+# Talk slides live beside the paper figures, wherever those are: ``paper/
+# figures/talk/`` in the manuscript repo, ``figures/talk/`` in the public one.
+# Asking ``paths`` rather than spelling it out keeps one rule in one place --
+# a second hardcoded copy would create a stray ``paper/`` for anyone who
+# pip-installed the package and has no manuscript.
+OUT = paths.figures_dir() / "talk"
 
 
 def shipped_params():

@@ -80,7 +80,6 @@ def reconstructions(cache):
         "R-L": np.load(cache / "rl_cache.npy"),
         "Sparse": np.load(cache / "sparse_cache.npy"),
         "Wiener + MF": np.load(cache / "mf_cache.npy"),
-        "ML (SR1)": ml["sr1_mean"],
         "ML (SR2)": ml["sr2_mean"],
     }
     return {k: np.asarray(v, dtype=np.float64) for k, v in out.items()}

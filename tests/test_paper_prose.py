@@ -7,6 +7,12 @@ quoting the pre-retune cache -- line S/N ratios, detection fractions,
 false-detection rates, FWHM biases, flux-ratio rankings and the redshift bins.
 Two of those stale numbers had also inverted a qualitative claim.  These tests
 recompute each quoted quantity and assert the manuscript states it.
+
+On 2026-10-01 the prose was cut back to one or two rounded numbers per claim,
+the rest being left to the figures and tables.  Where a number left the text
+its string guard went with it, but the *claim* the sentence still makes is
+recomputed here -- "every classical method falls below the reference" is as
+easy to leave stale as "$0.22$ to $0.71$" was.
 """
 from __future__ import annotations
 
@@ -17,7 +23,7 @@ import pytest
 
 from conftest import REPO, SRC
 
-PAPER = REPO / "paper.tex"
+PAPER = REPO / "paper" / "paper.tex"
 LINES = ["Halpha", "Hbeta", "OII3727", "OIII5007"]
 # snr.npz key prefix -> fit_params_cache.npz method name
 SNR_KEY = {"LR": "Cubic (LR)", "Wiener": "Wiener", "Tikhonov": "Tikhonov",
@@ -47,6 +53,11 @@ def _states(tex, value, fmt=".2f"):
     return f"${value:{fmt}}$" in tex
 
 
+def _said(tex, text):
+    """``text`` appears verbatim, except that any space may be a line break."""
+    return re.search(re.escape(text).replace(r"\ ", r"\s+"), tex) is not None
+
+
 # ── per-line S/N (Section 4.3) ────────────────────────────────────────────────
 @pytest.fixture(scope="module")
 def snr_ratios(snr):
@@ -62,35 +73,22 @@ def snr_ratios(snr):
 
 
 def test_sr2_line_snr_ratios(tex, snr_ratios):
-    for line, val in zip(LINES, snr_ratios["SR2"]):
-        assert _states(tex, val), f"paper does not state SR2 {line} S/N ratio {val:.2f}"
+    sr2 = dict(zip(LINES, snr_ratios["SR2"]))
+    assert min(sr2.values()) > 1, "SR2 no longer exceeds the reference for every line"
+    ha = sr2.pop("Halpha")
+    assert _said(tex, f"by a factor of ${ha:.2f}$ for \\ha"), \
+        f"paper does not state SR2's Halpha S/N ratio {ha:.2f}"
+    assert round(ha) == 3, f"abstract says three times the reference's; it is {ha:.2f}"
+    lo, hi = min(sr2.values()), max(sr2.values())
+    assert _said(tex, f"${lo:.1f}$--${hi:.1f}$ for the others"), \
+        f"paper does not state the other lines' S/N ratios {lo:.1f}-{hi:.1f}"
 
 
 def test_classical_line_snr_range(tex, snr_ratios):
     arr = np.array([snr_ratios[k] for k in CLASSICAL])
-    lo, hi = arr.min(), arr.max()
-    assert f"${lo:.2f}$ to\n${hi:.2f}$" in tex or f"${lo:.2f}$ to ${hi:.2f}$" in tex, \
-        f"paper does not state the classical S/N ratio range {lo:.2f}-{hi:.2f}"
-
-
-def test_classical_line_snr_leaders(tex, snr_ratios):
-    """Which classical method leads each line changed when they were retuned."""
-    arr = np.array([snr_ratios[k] for k in CLASSICAL])
-    for j, line in enumerate(LINES):
-        best = CLASSICAL[int(np.argmax(arr[:, j]))]
-        val = arr[:, j].max()
-        if line in ("Halpha", "OIII5007", "OII3727"):
-            assert _states(tex, val), \
-                f"paper does not state the best classical {line} ratio {val:.2f} ({best})"
-
-
-def test_median_halpha_snr(tex, snr):
-    hr, me = snr["HR_Halpha"], snr["SR2_Halpha"]
-    real = np.isfinite(hr) & (hr > 5)
-    a = float(np.median(me[real & np.isfinite(me)]))
-    b = float(np.median(hr[real]))
-    assert _states(tex, a, ".1f"), f"paper does not state SR2 median Halpha S/N {a:.1f}"
-    assert _states(tex, b, ".1f"), f"paper does not state HR median Halpha S/N {b:.1f}"
+    assert arr.max() < 1, f"a classical method exceeds the reference ({arr.max():.2f})"
+    assert _said(tex, "Every classical method falls below the grating reference "
+                      "for every line")
 
 
 # ── amplitude recovery (Sections 4.3 and 5) ───────────────────────────────────
@@ -111,22 +109,24 @@ def test_amplitude_recovery_range(tex, amp_recovery):
     assert f"{lo:.0f}--{hi:.0f}\\%" in tex, \
         f"paper does not state the SR2 amplitude range {lo:.0f}-{hi:.0f}%"
     ha = amp_recovery["Halpha"]
-    assert _states(tex, ha, ".1f") or f"{ha:.1f}\\%" in tex, \
-        f"paper does not state the Halpha amplitude recovery {ha:.1f}%"
+    assert 45 <= ha <= 55, f"paper says about half for Halpha; it is {ha:.1f}%"
+    assert ha == hi, "paper says the other three lines are lower still than Halpha"
+    assert _said(tex, "about half the reference value for \\ha\\ and lower still")
 
 
 # ── detection fractions (Section 4.3) ─────────────────────────────────────────
 def test_detection_fractions(tex, snr):
+    def frac(key, line):
+        return 100.0 * float(np.nanmean(snr[f"{key}_{line}"] > 5))
+
     for line in ("Hbeta", "OII3727"):
-        for key in ("SR2", "HR"):
-            v = 100.0 * float(np.nanmean(snr[f"{key}_{line}"] > 5))
-            assert f"{v:.1f}\\%" in tex, \
-                f"paper does not state the {key} {line} detection fraction {v:.1f}%"
-    arr = np.array([[100.0 * float(np.nanmean(snr[f"{k}_{line_key}"] > 5))
-                     for line_key in ("Hbeta", "OII3727")] for k in CLASSICAL])
-    lo, hi = arr.min(), arr.max()
-    assert f"{lo:.1f}\\%" in tex and f"{hi:.1f}\\%" in tex, \
-        f"paper does not state the classical weak-line detection span {lo:.1f}-{hi:.1f}%"
+        sr2, hr = frac("SR2", line), frac("HR", line)
+        assert sr2 > hr, f"SR2 no longer out-detects the reference for {line}"
+        assert _said(tex, f"${sr2:.0f}\\%$ against ${hr:.0f}\\%$"), \
+            f"paper does not state the {line} detection fractions {sr2:.0f}% / {hr:.0f}%"
+    hi = max(frac(k, line) for k in CLASSICAL for line in ("Hbeta", "OII3727"))
+    assert _said(tex, f"the classical methods reach at most ${hi:.0f}\\%$"), \
+        f"paper does not state the classical weak-line detection ceiling {hi:.0f}%"
 
 
 # ── false-detection rates (Section 4.4) ───────────────────────────────────────
@@ -144,32 +144,31 @@ def fdr(fits):
 
 
 def test_sr2_weak_line_fdr(tex, fdr):
-    for line, val in zip(LINES, fdr["SR2"]):
-        if line in ("Hbeta", "OII3727"):
-            assert _states(tex, val, ".3f"), \
-                f"paper does not state the SR2 {line} FDR {val:.3f}"
+    hb, oii = (fdr["SR2"][LINES.index(k)] for k in ("Hbeta", "OII3727"))
+    assert len(re.findall(rf"reaches \${hb:.2f}\$ and \${oii:.2f}\$", tex)) == 2, \
+        f"results and discussion do not both state the SR2 weak-line FDRs {hb:.2f} / {oii:.2f}"
+    assert round(oii, 1) == 0.4, "paper says roughly two in five for [O II]"
 
 
-def test_classical_weak_line_fdr_bounds(tex, fdr):
-    arr = np.array([fdr[k] for k in CLASSICAL])
-    for j, line in enumerate(LINES):
-        if line not in ("Hbeta", "OII3727"):
-            continue
-        lo, hi = arr[:, j].min(), arr[:, j].max()
-        assert _states(tex, lo, ".3f"), \
-            f"paper does not state the classical {line} FDR floor {lo:.3f}"
-        assert _states(tex, hi, ".3f"), \
-            f"paper does not state the classical {line} FDR ceiling {hi:.3f}"
+def test_strong_line_fdr_band(tex, fdr):
+    """For Halpha and [O III] every method, SR2 included, sits in one band."""
+    arr = np.array([[fdr[k][LINES.index(line)] for line in ("Halpha", "OIII5007")]
+                    for k in SNR_KEY])
+    band = f"${arr.min():.2f}$--${arr.max():.2f}$"
+    assert tex.count(band) == 2, \
+        f"results and discussion do not both state the strong-line FDR band {band}"
 
 
 def test_no_classical_method_exceeds_the_stated_weak_line_fdr(tex, fdr):
     arr = np.array([fdr[k] for k in CLASSICAL])
-    worst = 100.0 * max(arr[:, LINES.index("Hbeta")].max(),
-                        arr[:, LINES.index("OII3727")].max())
-    m = re.search(r"manufactures a weak line at more than an? \$?([0-9]+)\\%\$? rate", tex)
-    assert m, "paper does not bound the classical weak-line false-detection rate"
-    assert worst <= float(m.group(1)), \
-        f"paper claims no classical method exceeds {m.group(1)}%, cache says {worst:.1f}%"
+    worst = max(arr[:, LINES.index("Hbeta")].max(), arr[:, LINES.index("OII3727")].max())
+    stated = [float(v) for v in
+              re.findall(r"No classical method exceeds \$([0-9.]+)\$", tex)
+              + re.findall(r"at\s+most \$([0-9.]+)\$ for any classical", tex)]
+    assert len(stated) == 2, "paper does not bound the classical weak-line FDR twice"
+    for v in stated:
+        assert worst <= v < worst + 0.01, \
+            f"paper bounds the classical weak-line FDR at {v}, cache says {worst:.3f}"
 
 
 # ── FWHM bias (Section 4.6) ───────────────────────────────────────────────────
@@ -219,27 +218,111 @@ def flux_ratio_logmae(fits):
 
 
 def test_balmer_ranking_is_stated_honestly(tex, flux_ratio_logmae):
-    b = flux_ratio_logmae["balmer"]
+    b, o = flux_ratio_logmae["balmer"], flux_ratio_logmae["o3hb"]
     order = sorted(b, key=b.get)
-    rank = order.index("ML (SR2)") + 1
-    assert rank > 1, "SR2 now leads the Balmer decrement; the prose says it does not"
+    assert order[:2] == ["Wiener + MF", "ML (SR2)"], \
+        f"paper says SR2 is second on the Balmer decrement behind the MF; order is {order}"
     assert not re.search(r"nominally the best of any method", tex), \
         "paper still calls the ML Balmer log-MAE the best of any method"
-    for name in order[:rank]:
-        assert _states(tex, b[name], ".3f"), \
-            f"paper does not state the Balmer log-MAE {b[name]:.3f} for {name}"
+    assert _said(tex, "second of the eight methods, behind Wiener\\,+\\,\\gls{mf}")
+    assert max(o, key=o.get) == "ML (SR2)", "SR2 is no longer last on [OIII]/Hb"
+    worse = 100.0 * (o["ML (SR2)"] / o["Cubic (LR)"] - 1.0)
+    assert _said(tex, f"it is last, ${worse:.0f}\\%$ worse than cubic interpolation"), \
+        f"paper does not state SR2 is {worse:.0f}% worse than interpolation on [OIII]/Hb"
 
 
 def test_flux_ratio_spans(tex, flux_ratio_logmae):
-    b = flux_ratio_logmae["balmer"]
-    lo, hi = min(b.values()), max(b.values())
-    assert f"${lo:.3f}$--${hi:.3f}$" in tex, \
-        f"paper does not state the Balmer field span {lo:.3f}-{hi:.3f}"
-    allv = list(b.values()) + list(flux_ratio_logmae["o3hb"].values())
+    allv = (list(flux_ratio_logmae["balmer"].values())
+            + list(flux_ratio_logmae["o3hb"].values()))
     m = re.search(r"\{\\sim\}([0-9.]+)\$--\$([0-9.]+)\\,\\mathrm\{dex\}", tex)
     assert m, "paper does not state the overall log-ratio error range"
     assert float(m.group(1)) == pytest.approx(min(allv), abs=0.02)
     assert float(m.group(2)) == pytest.approx(max(allv), abs=0.02)
+
+
+# ── line width as a ratio, and line centres (Section 4.6) ─────────────────────
+FIG5_LINES = ["Halpha", "OIII5007", "Hbeta", "OII3727"]      # figure 5's column order
+FIG5_CLASSICAL = ["LR", "Wiener", "Tikhonov", "TV", "RL", "Sparse", "MF"]
+
+
+@pytest.fixture(scope="module")
+def fig5(cache):
+    from specsrbench.data import load_cache
+    from specsrbench.figures.fig5_per_line_snr import compute
+    return compute(load_cache(cache))
+
+
+def _span(fig5, key, methods, line=None, scale=1.0):
+    cols = [FIG5_LINES.index(line)] if line else range(4)
+    vals = [scale * fig5[key][m][j] for m in methods for j in cols]
+    return min(vals), max(vals)
+
+
+def _kms(v):
+    """How the paper typesets a velocity: thousands separated by {,}."""
+    return f"{v:,.0f}".replace(",", "{,}")
+
+
+def test_reference_line_widths(tex, fits):
+    med = [float(np.median(2.355e3 * fits[f"HR target_{ln}_sigma"][
+        np.isfinite(fits[f"HR target_{ln}_sigma"]) & (fits[f"HR target_{ln}_sn"] > 5)]))
+        for ln in FIG5_LINES]
+    lo, hi = np.floor(min(med)), np.ceil(max(med))
+    assert _said(tex, f"only ${lo:.0f}$--${hi:.0f}$\\,nm wide"), \
+        f"paper does not bracket the reference line widths {min(med):.1f}-{max(med):.1f} nm"
+
+
+def test_fwhm_relative_bias(tex, fig5):
+    """Figure 5 row 3: (FWHM_pred - FWHM_obs) / FWHM_obs, and the ratio it implies."""
+    lo, hi = _span(fig5, "fwhm_ratio", FIG5_CLASSICAL)
+    assert _said(tex, f"make them ${lo:.0f}$--${hi:.0f}$ times as broad"), \
+        f"paper does not state the classical width ratio {lo:.1f}-{hi:.1f}"
+    lo, hi = _span(fig5, "fwhm_rel", ["SR2"])
+    lo_pct, hi_pct = 100 * round(lo, 1), 100 * round(hi, 1)
+    assert _said(tex, f"broadens them by ${lo_pct:.0f}$--${hi_pct:.0f}\\%$"), \
+        f"paper does not state the SR2 relative width bias {lo:.2f}-{hi:.2f}"
+
+
+def test_line_centre_offsets(tex, fig5):
+    def stated(pattern):
+        m = re.search(pattern, tex)
+        assert m, f"paper does not state a centre offset matching {pattern}"
+        return float(m.group(1).replace("{,}", ""))
+
+    hi = _span(fig5, "centre_offset", ["SR2"])[1]
+    bound = stated(r"line\s+within \$\{\\sim\}([0-9{},]+)\$\\,km")
+    assert 0.9 * bound <= hi <= bound, f"paper bounds SR2's centres at {bound}, worst is {hi:.0f}"
+    assert hi / 299792.458 <= 0.001, "SR2's worst centre offset exceeds dz/(1+z) = 0.001"
+
+    ha = _span(fig5, "centre_offset", FIG5_CLASSICAL, "Halpha")
+    assert ha[0] <= _span(fig5, "centre_offset", ["SR2"], "Halpha")[0], \
+        "paper says the classical methods match SR2 on Halpha centres; they do not"
+    for line in ("OIII5007", "Hbeta", "OII3727"):
+        lo = _span(fig5, "centre_offset", FIG5_CLASSICAL, line)[0]
+        assert lo > _span(fig5, "centre_offset", ["SR2"], line)[1], \
+            f"a classical {line} centre is as good as SR2's, contrary to the text"
+
+    oiii = _span(fig5, "centre_offset", FIG5_CLASSICAL, "OIII5007")[1]
+    weak = max(_span(fig5, "centre_offset", FIG5_CLASSICAL, ln)[1]
+               for ln in ("Hbeta", "OII3727"))
+    assert oiii == pytest.approx(
+        stated(r"up to \$\{\\sim\}([0-9{},]+)\$\\,km\\,s\$\^\{-1\}\$ for \\oiii"), rel=0.05)
+    assert weak == pytest.approx(
+        stated(r"up to\s+\$\{\\sim\}([0-9{},]+)\$\\,km\\,s\$\^\{-1\}\$ for \\hb"), rel=0.05)
+
+
+def test_line_centre_shifts_are_systematic(tex, fig5):
+    hi = _span(fig5, "centre_bias", FIG5_CLASSICAL, "OIII5007")[1]
+    assert hi < 0, "not every classical [O III] centre is shifted blueward"
+    assert _said(tex, "which is drawn blueward toward $\\lambda$4959 and \\hb")
+
+
+def test_line_centre_bound_fractions(tex, fig5):
+    """"Many fits reach the bound", so the classical offsets are lower limits."""
+    for line in ("Hbeta", "OII3727"):
+        frac = _span(fig5, "centre_at_bound", FIG5_CLASSICAL, line, scale=100)[1]
+        assert frac > 25, f"only {frac:.0f}% of classical {line} fits reach the bound"
+    assert _said(tex, "many fits reach the fitting bound and the offsets are lower limits")
 
 
 # ── redshift dependence (Section 4.7) ─────────────────────────────────────────
@@ -255,29 +338,93 @@ def z_bins(cache, x_high, reconstructions):
         sel = (z >= lo) & (z <= hi) if i == 5 else (z >= lo) & (z < hi)
         row = {}
         for k, a in reconstructions.items():
-            if k == "ML (SR1)":
-                continue
             d = np.where(valid[sel], a[sel] - x_high[sel], np.nan)
             row[k] = float(np.nanmean(np.nanmean(np.abs(d), axis=1)))
         rows.append(row)
     return rows
 
 
-def test_sr2_is_best_in_every_redshift_bin(tex, z_bins):
+def test_sr2_is_best_in_every_redshift_bin(z_bins):
     for i, row in enumerate(z_bins):
         best = min(row, key=row.get)
         assert best == "ML (SR2)", f"bin {i} is led by {best}, not SR2"
-    assert _states(tex, z_bins[0]["ML (SR2)"], ".3f"), \
-        f"paper does not state the lowest-bin SR2 MAE {z_bins[0]['ML (SR2)']:.3f}"
-    assert _states(tex, z_bins[-1]["ML (SR2)"], ".3f"), \
-        f"paper does not state the highest-bin SR2 MAE {z_bins[-1]['ML (SR2)']:.3f}"
 
 
-def test_wiener_band_across_redshift(tex, z_bins):
-    lo = z_bins[0]["Wiener"]
-    hi = z_bins[-1]["Wiener"]
-    assert _states(tex, lo, ".3f") and _states(tex, hi, ".3f"), \
-        f"paper does not state the Wiener redshift band {lo:.3f}-{hi:.3f}"
+@pytest.fixture(scope="module")
+def fig6(cache):
+    from specsrbench.data import load_cache
+    from specsrbench.figures.fig6_redshift_mae import compute
+    return compute(load_cache(cache))
+
+
+def test_figure6_plots_the_numbers_the_text_quotes(fig6, z_bins):
+    """The figure once pooled every pixel, padding included; the text did not."""
+    for key, name in [("SR2", "ML (SR2)"), ("Wiener", "Wiener"), ("MF", "Wiener + MF")]:
+        got = np.round(fig6["mae"][key], 3)
+        want = np.round([row[name] for row in z_bins], 3)
+        assert np.array_equal(got, want), f"{key}: figure {got} vs text {want}"
+
+
+def test_redshift_noise_floor(tex, fig6, cache):
+    assert fig6["floor"][0] < fig6["floor"][-1], "the noise floor does not rise with redshift"
+    from specsrbench.data import load_cache
+    c = load_cache(cache)
+    err = np.where(c.valid, c.x_high_err, np.nan)
+    floor = np.sqrt(2 / np.pi) * np.nanmean(err, axis=1)
+    w = np.nanmean(np.abs(np.where(c.valid, c.arrays["Wiener"] - c.x_high, np.nan)), axis=1)
+    r2 = np.corrcoef(floor, w)[0, 1] ** 2
+    assert r2 > 0.5, f"the noise floor explains only {100 * r2:.0f}% of Wiener's MAE"
+    assert _said(tex, "it accounts for most of the trend")
+
+
+def test_redshift_knee_is_where_wiener_error_stops_growing(tex, fig6, cache):
+    """Noise-subtracted MSE: an unbiased estimate of error against the truth."""
+    from specsrbench.data import load_cache
+    from specsrbench.figures.fig6_redshift_mae import bin_index
+    c = load_cache(cache)
+    err2 = np.where(c.valid, c.x_high_err, np.nan) ** 2
+    d2 = np.where(c.valid, c.arrays["Wiener"] - c.x_high, np.nan) ** 2
+    _edges, idx = bin_index(c.z)
+    own = [np.nanmean(d2[idx == b]) - np.nanmean(err2[idx == b]) for b in range(6)]
+    peak = int(np.argmax(own))
+    assert all(np.diff(own[:peak + 1]) > 0), f"Wiener's own error is not rising to its peak: {own}"
+    assert _said(tex, f"grows only up to $z \\approx {fig6['z_median'][peak]:.1f}$"), (
+        f"paper does not place the knee at the bin where it peaks "
+        f"(z = {fig6['z_median'][peak]:.1f})")
+
+
+def test_redshift_amplitude_trend(tex, fig6):
+    sr2 = fig6["amp"]["SR2"]
+    assert sr2[0] > sr2[-1], "SR2's amplitude does not fall with redshift"
+    assert _said(tex, f"falls from ${sr2[0]:.2f}$ in the lowest bin "
+                      f"to ${sr2[-1]:.2f}$ in the highest"), \
+        f"paper does not state SR2's amplitude trend {sr2[0]:.2f}-{sr2[-1]:.2f}"
+    cls = np.array([fig6["amp"][k] for k in fig6["amp"] if k != "SR2"])
+    assert 0.9 < cls.min() and cls.max() < 1.25, \
+        f"classical amplitudes span {cls.min():.2f}-{cls.max():.2f}; paper says near unity"
+    assert _said(tex, "every classical method stays near unity")
+
+
+def test_a_spectrum_of_zeros_beats_the_classical_methods(tex, fig6):
+    """Above the stated redshift, and only there, zeros out-score every classical method."""
+    cls = [k for k in fig6["mae"] if k != "SR2"]
+    beats = [fig6["zero"][b] < min(fig6["mae"][k][b] for k in cls) for b in range(6)]
+    first = beats.index(True)
+    assert all(beats[first:]) and not any(beats[:first]), f"zeros win in bins {beats}"
+    assert _said(tex, f"above $z \\approx {fig6['edges'][first]:.1f}$ it scores "
+                      "lower than every classical"), \
+        f"paper does not state the redshift above which zeros win (z = {fig6['edges'][first]:.2f})"
+
+
+def test_redshift_scalefree_cluster(tex, fig6):
+    sf = fig6["sf"]
+    spread = max(100 * (max(sf[k][b] for k in sf) - min(sf[k][b] for k in sf))
+                 / min(sf[k][b] for k in sf) for b in range(6))
+    assert spread < 5, f"the scale-free metric separates the methods by {spread:.1f}% in a bin"
+    extremes = [sf["SR2"][b] in (min(sf[k][b] for k in sf), max(sf[k][b] for k in sf))
+                for b in range(6)]
+    assert not all(extremes), "SR2 is the extreme method in every bin"
+    assert _said(tex, "no method separates from the others at any redshift")
 
 
 def test_mf_versus_wiener_direction(tex, z_bins):
@@ -314,10 +461,155 @@ def test_width_bound_fractions(tex, fits, cache, wave):
         ok = np.isfinite(a) & np.isfinite(b)
         both += int((pinned(a, line_key) & pinned(b, line_key) & ok).sum())
 
+    m = re.search(r"fewer than \$([0-9]+)\\%\$ of the \\gls\{sr2\} and reference fits", tex)
+    assert m, "paper does not bound the fraction of fits at the width bound"
     for key in ("sr2", "hr"):
-        assert f"${worst[key]:.1f}\\%$" in tex, \
-            f"paper does not state the {key} width-bound fraction {worst[key]:.1f}%"
-    n_fits = f"{len(z) * len(rest):,}".replace(",", "{,}")
-    assert f"${both}$ of the ${n_fits}$" in tex, \
-        (f"paper does not state that both fits are pinned together in {both} of "
-         f"{len(z) * len(rest)} line fits")
+        assert worst[key] < float(m.group(1)), \
+            f"{worst[key]:.1f}% of {key} fits sit at the width bound; paper says < {m.group(1)}%"
+    assert both < 0.01 * len(z) * len(rest), f"both fits are pinned together in {both} cases"
+
+
+# ── residual-map streaks (Section 4.1) ────────────────────────────────────────
+# The prose called the red diagonals "systematic underestimation of the line
+# flux".  The maps plot method - reference on RdBu_r, where red is the method
+# reading *high*, so the claim inverted the figure it described.  What the
+# streaks show is line flux spread into broad wings, with a thin depleted core
+# -- and SR2's core is the most depleted of any method, which is the amplitude
+# deficit seen pixel by pixel.  These numbers are what the text now quotes.
+RESID_BANDS = {"core": (0.0, 3.0), "wing": (3.0, 10.0)}
+
+
+@pytest.fixture(scope="module")
+def line_residuals(reconstructions, x_high, wave, cache):
+    z = np.load(cache / "z_test.npy")
+    out = {}
+    for line, lam_rest in (("Halpha", 0.6563), ("OIII5007", 0.5007)):
+        centers = lam_rest * (1.0 + z)
+        d_nm = (wave[None, :] - centers[:, None]) * 1000.0
+        on_grid = (centers > wave[0] + 0.05) & (centers < wave[-1] - 0.05)
+        per_method = {}
+        for name, arr in reconstructions.items():
+            resid = np.asarray(arr, float) - x_high
+            bands = {}
+            for band, (lo, hi) in RESID_BANDS.items():
+                m = (np.abs(d_nm) >= lo) & (np.abs(d_nm) < hi) & on_grid[:, None]
+                bands[band] = float(np.nanmean(resid[m]))
+            per_method[name] = bands
+        out[line] = per_method
+    return out
+
+
+def test_residual_streaks_are_wings_not_missing_flux(line_residuals):
+    """The direction of the claim, independent of the numbers quoted."""
+    for line, per_method in line_residuals.items():
+        for name, bands in per_method.items():
+            if name == "ML (SR2)":
+                continue
+            assert bands["wing"] > 0, (
+                f"{name} does not read high in the {line} wings; the paper's "
+                "description of the red streaks no longer holds")
+            assert bands["core"] < 0, f"{name} does not read low in the {line} core"
+
+
+def test_sr2_core_deficit_is_the_largest_and_wings_the_smallest(tex, line_residuals):
+    for line, label in (("Halpha", "Halpha"), ("OIII5007", "[OIII]")):
+        per_method = line_residuals[line]
+        sr2 = per_method["ML (SR2)"]["core"]
+        worst_classical = min(v["core"] for k, v in per_method.items()
+                              if k != "ML (SR2)")
+        assert sr2 < worst_classical, (
+            f"SR2's {label} core deficit ({sr2:.2f}) is no longer the largest "
+            f"(classical worst {worst_classical:.2f}); the paper says it is")
+    ha = line_residuals["Halpha"]
+    wings = [v["wing"] for k, v in ha.items() if k != "ML (SR2)"]
+    assert ha["ML (SR2)"]["wing"] < 0.5 * min(wings), \
+        "SR2's Halpha wings are no longer almost absent beside the classical ones"
+    assert _said(tex, "Its wings are almost absent, but its core deficit is the "
+                      "largest of any method")
+
+
+# ── flux-ratio robustness check (Section 4.5) ────────────────────────────────
+@pytest.fixture(scope="module")
+def flux_ratio_strict(fits, snr):
+    """Log-ratio MAE with both lines detected at S/N > 5 in the reference.
+
+    The amplitude threshold used in the main comparison is weak, and a ratio is
+    most sensitive to its faintest line.  This is the check that the section's
+    conclusions do not depend on that threshold.
+    """
+    def one(num, den):
+        hn, hd = fits[f"HR target_{num}_amp"], fits[f"HR target_{den}_amp"]
+        strict = (snr[f"HR_{num}"] > 5) & (snr[f"HR_{den}"] > 5)
+        out, sizes = {}, {}
+        for name in SNR_KEY.values():
+            mn, md = fits[f"{name}_{num}_amp"], fits[f"{name}_{den}_amp"]
+            v = (np.isfinite(hn) & np.isfinite(hd) & np.isfinite(mn) & np.isfinite(md)
+                 & (hn > 0.01) & (hd > 0.01) & (mn > 0.01) & (md > 0.01) & strict)
+            out[name] = float(np.mean(np.abs(np.log10(mn[v] / md[v])
+                                             - np.log10(hn[v] / hd[v]))))
+            sizes[name] = int(v.sum())
+        return out, sizes
+    b, bn = one("Halpha", "Hbeta")
+    o, on = one("OIII5007", "Hbeta")
+    return {"balmer": b, "o3hb": o, "n": list(bn.values()) + list(on.values())}
+
+
+def test_strict_flux_ratio_conclusions_are_unchanged(tex, flux_ratio_strict, flux_ratio_logmae):
+    b, o = flux_ratio_strict["balmer"], flux_ratio_strict["o3hb"]
+    assert sorted(b, key=b.get).index("ML (SR2)") + 1 == 2, \
+        "SR2 is no longer second on the Balmer decrement under the strict cut"
+    assert o["ML (SR2)"] > o["Cubic (LR)"], \
+        "SR2 is no longer worse than interpolation on [OIII]/Hb under the strict cut"
+    assert _said(tex, "remains second on the Balmer decrement and worse than "
+                      "interpolation on \\oiii/\\hb")
+    for name in b:
+        assert b[name] < flux_ratio_logmae["balmer"][name] + 0.01 and \
+            o[name] < flux_ratio_logmae["o3hb"][name] + 0.01, \
+            f"{name}'s error does not fall under the strict cut"
+    allv = list(b.values()) + list(o.values())
+    assert f"${min(allv):.2f}$--${max(allv):.2f}\\,$dex" in tex, \
+        f"paper does not state the strict-cut span {min(allv):.2f}-{max(allv):.2f}"
+
+
+# ── 1D toy demonstration (Section 3.4) ────────────────────────────────────────
+# The toy RMSEs are quoted in the prose and were unguarded: the classical
+# panels are deterministic (only the CNN panel is not), so there is no reason
+# for the paper to state a number the generator does not reproduce.
+def test_toy_claims_hold(tex):
+    pytest.importorskip("skimage")
+    pytest.importorskip("pywt")
+    from specsrbench.figures import fig1_toy_methods as toy
+
+    _x, true, lsf, _blurred, obs = toy.make_toy()
+    centers = [p[0] for p in toy.TRUE_PARAMS]
+    sigma = float(np.mean([p[1] for p in toy.TRUE_PARAMS]))
+
+    def rmse(a):
+        return float(np.sqrt(np.mean((a - true) ** 2)))
+
+    def peak(a):
+        return float(a[150:210].max() / true[150:210].max())
+
+    got = {
+        "matched filter": toy.m_matched_filter(obs, lsf, centers, sigma),
+        "Tikhonov": toy.m_tikhonov(obs, lsf, lam=0.01),
+    }
+    for name, arr in got.items():
+        assert _states(tex, rmse(arr), ".3f"), \
+            f"paper does not state the toy {name} RMSE of {rmse(arr):.3f}"
+
+    # "Recovers most of the peak amplitude but amplifies the noise."
+    rl = toy.m_richardson_lucy(obs, lsf, n_iter=30)
+    assert peak(rl) > 0.75, f"Richardson-Lucy recovers only {peak(rl):.0%} of the peak"
+    assert rl.min() <= obs.min() * 0.9, \
+        "Richardson-Lucy no longer leaves excursions as deep as the noisy input"
+
+    # The toy parameters are conventional, not optimized: stronger Tikhonov
+    # regularization buys less ringing and a lower RMSE for a lower peak.
+    assert "tuned separately for the toy" not in tex, \
+        "the toy parameters are fixed conventional values, not tuned"
+    loose, tight = got["Tikhonov"], toy.m_tikhonov(obs, lsf, lam=0.3)
+    assert rmse(tight) < rmse(loose) and tight.min() > loose.min(), \
+        "stronger Tikhonov regularization no longer reduces the toy ringing"
+    assert peak(tight) < peak(loose), \
+        "stronger Tikhonov regularization no longer costs peak amplitude"

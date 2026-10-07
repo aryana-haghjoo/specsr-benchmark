@@ -119,6 +119,10 @@ def main(argv=None) -> int:
                              sr1_config=str(sr1_cfg), zhead_ckpt=str(zhead),
                              dataset=str(dataset))
     res = predict(pipeline, SPLIT, dataset=str(dataset), batch_size=args.batch_size)
+    # SR1 is an intermediate stage of the pipeline, not a method the benchmark
+    # reports.  It has to run for SR2 to run, but its output is not kept.
+    for stage in ("sr1", "sr1_sigma"):
+        res.pop(stage, None)
 
     # Record what made these arrays, beside the arrays.  A cache whose inputs
     # are not written down next to it is how a green test suite once proved the
@@ -137,9 +141,8 @@ def main(argv=None) -> int:
     n = len(res["z_true"])
     print(f"\n  cached {n} spectra -> {out}")
     if "sr2" in res:
-        d1 = float(np.mean((res["sr1"] - res["flux_high"]) ** 2))
         d2 = float(np.mean((res["sr2"] - res["flux_high"]) ** 2))
-        print(f"  physical-space MSE vs HR: SR1 {d1:.4e}   SR2 {d2:.4e}")
+        print(f"  physical-space MSE vs HR: SR2 {d2:.4e}")
     return 0
 
 

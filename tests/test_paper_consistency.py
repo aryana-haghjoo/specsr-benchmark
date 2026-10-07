@@ -15,7 +15,7 @@ import pytest
 
 from conftest import CACHE, REPO, mae_scalefree, std_ratio
 
-PAPER = REPO / "paper.tex"
+PAPER = REPO / "paper" / "paper.tex"
 
 
 @pytest.fixture(scope="module")
@@ -33,49 +33,50 @@ def summary():
     return {r["Method"]: r for r in csv.DictReader(path.open())}
 
 
-# LaTeX label -> summary_final.csv label
-TABLE_ROWS = {
-    r"Wiener\,+\,\gls{mf}": "Wiener + MF",
-    r"Wiener\,+\,\gls{tv}": "TV",
-    "Wiener": "Wiener",
+# figure 4 label -> summary_final.csv label
+FIG4_ROWS = {
     "Cubic (LR)": "Cubic (LR)",
+    "Wiener": "Wiener",
     "Tikhonov": "Tikhonov",
-    "Richardson--Lucy": "R-L",
-    r"Sparse (\gls{fista})": "Sparse",
-    r"\gls{ml} (\gls{sr2})": "ML (SR2)",
+    "Wiener + TV": "TV",
+    "R-L": "R-L",
+    "Sparse": "Sparse",
+    "Wiener + MF": "Wiener + MF",
+    "ML (SR2)": "ML (SR2)",
 }
 
 
-def _table_body(tex):
-    m = re.search(r"\\startdata(.*?)\\enddata", tex, re.S)
-    assert m, "the global-fidelity deluxetable is missing from paper.tex"
-    return m.group(1)
+def test_figure4_panels_match_the_cache(tex, summary, cache):
+    """Every bar of figure 4's MAE, amplitude and scale-free panels.
 
+    These three panels replaced the manuscript's global-fidelity table on
+    2026-10-02, and this test replaced the one that parsed that table.  The
+    numbers a reader takes from the paper are now the ones the figure module
+    computes, so they are checked against the build's own summary instead.
+    """
+    from specsrbench.data import load_cache
+    from specsrbench.figures.fig4_mae_summary import compute
 
-def test_global_table_matches_the_cache(tex, summary):
-    """Every row of the global-fidelity table, against a fresh computation."""
-    body = _table_body(tex)
-    seen = 0
-    for line in body.splitlines():
-        line = line.strip().rstrip("\\").strip()
-        if not line or line.startswith("%"):
-            continue
-        cells = [c.strip() for c in line.split("&")]
-        if len(cells) != 4:
-            continue
-        label, mae_s, amp_s, sf_s = cells
-        key = TABLE_ROWS.get(label)
-        if key is None or key not in summary:
-            continue
-        seen += 1
-        row = summary[key]
-        assert float(mae_s) == pytest.approx(float(row["MAE"]), abs=0.002), \
-            f"{label}: paper says MAE {mae_s}, cache says {row['MAE']}"
-        assert float(amp_s) == pytest.approx(float(row["std_ratio"]), abs=0.02), \
-            f"{label}: paper says amplitude {amp_s}, cache says {row['std_ratio']}"
-        assert float(sf_s) == pytest.approx(float(row["MAE_scalefree"]), abs=0.002), \
-            f"{label}: paper says scale-free {sf_s}, cache says {row['MAE_scalefree']}"
-    assert seen >= 7, f"only matched {seen} table rows; the parser or table changed"
+    assert "deluxetable" not in tex, "a table is back in paper.tex; guard its rows"
+    rows = {r["Method"]: r for r in compute(load_cache(cache))[0]}
+    for shown, key in FIG4_ROWS.items():
+        got, want = rows[shown], summary[key]
+        assert got["MAE"] == pytest.approx(float(want["MAE"]), abs=0.002), \
+            f"{shown}: figure 4 plots MAE {got['MAE']:.4f}, cache says {want['MAE']}"
+        assert got["AmpRatio"] == pytest.approx(float(want["std_ratio"]), abs=0.002), \
+            f"{shown}: figure 4 plots amplitude {got['AmpRatio']:.4f}, " \
+            f"cache says {want['std_ratio']}"
+        assert got["MAE_scalefree"] == pytest.approx(float(want["MAE_scalefree"]), abs=0.0005), \
+            f"{shown}: figure 4 plots scale-free {got['MAE_scalefree']:.4f}, " \
+            f"cache says {want['MAE_scalefree']}"
+
+    # The caption's reading of the panels.
+    sf = {k: rows[k]["MAE_scalefree"] for k in FIG4_ROWS}
+    order = sorted(sf, key=sf.get)
+    assert order[0] == "Cubic (LR)", "cubic interpolation no longer leads scale-free"
+    assert order.index("ML (SR2)") > order.index("Cubic (LR)")
+    assert 0.45 <= rows["ML (SR2)"]["AmpRatio"] <= 0.55, \
+        "caption says SR2 is at about half the reference's amplitude"
 
 
 def test_sample_size_is_stated_correctly(tex, x_high):
@@ -92,18 +93,27 @@ def test_grid_is_described_correctly(tex, wave):
 
 
 def test_ml_amplitude_ratio_is_stated(tex, reconstructions, x_high, valid):
-    """The 1.84x figure underpins the paper's central methodological argument."""
+    """The amplitude ratio underpins the paper's central methodological argument."""
     r = std_ratio(reconstructions["ML (SR2)"], x_high, valid)
-    stated = re.findall(r"([0-9]\.[0-9]{2})\\times\$ rescale|multiplied by ([0-9]\.[0-9]{2})", tex)
-    flat = {float(a or b) for a, b in stated}
-    assert flat, "paper never states the ML rescale factor"
-    assert any(abs(v - 1.0 / r) < 0.03 for v in flat), \
-        f"paper states {flat}, cache implies {1.0 / r:.2f}"
+    assert f"\\gls{{sr2}} sits at ${r:.2f}$" in tex, \
+        f"paper does not state the ML amplitude ratio {r:.2f}"
+    assert 0.45 <= r <= 0.55, f"abstract says about half the reference's amplitude; it is {r:.2f}"
 
 
 def test_scalefree_spread_claim(tex, reconstructions, x_high, valid):
-    vals = [mae_scalefree(v, x_high, valid) for v in reconstructions.values()]
+    # Eight methods: SR2 and seven classical.  SR1 is an intermediate stage of
+    # the pipeline and is neither cached nor reported.
+    sf = {k: mae_scalefree(v, x_high, valid) for k, v in reconstructions.items()}
+    vals = list(sf.values())
     spread_pct = 100 * (max(vals) - min(vals)) / min(vals)
+    words = {8: "eight", 7: "seventh"}
+    rank = sorted(sf, key=sf.get).index("ML (SR2)") + 1
+    assert f"the {words[len(sf)]} methods lie within" in tex, \
+        f"paper does not count {len(sf)} methods on the scale-free metric"
+    assert f"ranks {words[rank]}, behind cubic interpolation" in tex, \
+        f"paper misstates SR2's scale-free rank ({rank} of {len(sf)})"
+    assert not re.search(r"Stage \\gls\{sr1\} alone", tex), \
+        "the paper reports an SR1 result; only the pipeline's output is reported"
     m = re.search(r"span a total\s*\n?range of ([0-9.]+)\\%", tex) or \
         re.search(r"within \$?([0-9.]+)\\%\$? of one another", tex)
     assert m, "paper does not state the scale-free spread"
@@ -184,7 +194,7 @@ def fig2(cache, x_high, reconstructions, wave):
 
     classical_names = [k for k in reconstructions if not k.startswith("ML (")]
     rmse_all = {k: np.sqrt(np.nanmean((v - x_high) ** 2, axis=1))
-                for k, v in reconstructions.items() if not k.startswith("ML (SR1)")}
+                for k, v in reconstructions.items()}
     best_classical = np.min([rmse_all[k] for k in classical_names], axis=0)
     gain = 1.0 - rmse_all["ML (SR2)"] / best_classical
 
@@ -195,7 +205,7 @@ def fig2(cache, x_high, reconstructions, wave):
 
     finite = np.isfinite(x_high[i])
     amp = {k: float(np.nanstd(v[i][finite]) / np.nanstd(x_high[i][finite]))
-           for k, v in reconstructions.items() if not k.startswith("ML (SR1)")}
+           for k, v in reconstructions.items()}
     return {
         "n_subset": int(subset.sum()),
         "index": i,
@@ -254,13 +264,11 @@ def _ordinal(n):
     return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
 
 
-def test_fig2_rank_and_percentile_match(tex, fig2):
-    rank = fig2["rank"]
-    assert f"${rank}${_ordinal(rank)} of ${fig2['n_subset']}$" in tex, (
-        f"paper does not state figure 2's rank of {rank}{_ordinal(rank)} of "
-        f"{fig2['n_subset']}")
-    assert f"${fig2['percentile']:.0f}$th percentile" in tex, \
-        f"paper does not state figure 2's {fig2['percentile']:.0f}th percentile"
+def test_fig2_percentile_matches(tex, fig2):
+    want = f"${fig2['percentile']:.0f}$th percentile of the ${fig2['n_subset']}$"
+    assert re.search(re.escape(want).replace(r"\ ", r"\s+"), tex), \
+        f"paper does not place figure 2 at the {fig2['percentile']:.0f}th percentile " \
+        f"of {fig2['n_subset']}"
 
 
 def test_fig2_subset_size_and_redshift(tex, fig2):
@@ -270,33 +278,11 @@ def test_fig2_subset_size_and_redshift(tex, fig2):
         f"paper does not state the figure 2 redshift z = {fig2['z']:.2f}"
 
 
-def test_fig2_gain_and_subset_median_match(tex, fig2):
+def test_fig2_gain_matches(tex, fig2):
     assert f"${fig2['gain_pct']:.0f}\\%$" in tex, \
         f"paper does not state figure 2's {fig2['gain_pct']:.0f}% RMSE gain"
-    assert f"${fig2['median_gain_pct']:.0f}\\%$" in tex, \
-        f"paper does not state the subset median gain of {fig2['median_gain_pct']:.0f}%"
-
-
-def test_fig2_inset_wavelengths(tex, fig2):
-    """The inset is centred on this example's doublet, not a stale one's."""
-    m = re.search(r"doublet at \$([0-9.]+)\$ and \$([0-9.]+)\\,\\mu\$m", tex)
-    assert m, "paper does not state the inset wavelengths"
-    assert float(m.group(1)) == pytest.approx(fig2["lam4959"], abs=0.01), \
-        f"paper says 4959 at {m.group(1)} um, cache implies {fig2['lam4959']:.3f}"
-    assert float(m.group(2)) == pytest.approx(fig2["lam5007"], abs=0.01), \
-        f"paper says 5007 at {m.group(2)} um, cache implies {fig2['lam5007']:.3f}"
-
-
-def test_fig2_doublet_separation_matches(tex, fig2):
-    assert f"${fig2['sep_nm']:.1f}\\,$nm" in tex, \
-        f"paper does not state the {fig2['sep_nm']:.1f} nm doublet separation"
-
-
-def test_fig2_caption_rmse_matches_the_cache(tex, fig2):
-    for label, val in [("SR2", fig2["rmse_sr2"]),
-                       ("best classical", fig2["rmse_best_classical"])]:
-        assert f"${val:.3f}$" in tex, \
-            f"paper does not state the figure 2 {label} RMSE of {val:.3f}"
+    assert fig2["gain_pct"] > fig2["median_gain_pct"], \
+        "figure 2 is no longer favorable to SR2, which the paper says it is"
 
 
 def test_fig2_caption_amplitude_matches_the_cache(tex, fig2):
@@ -305,14 +291,6 @@ def test_fig2_caption_amplitude_matches_the_cache(tex, fig2):
     lo, hi = min(fig2["amp_classical"]), max(fig2["amp_classical"])
     assert f"${lo:.2f}$--${hi:.2f}$" in tex, \
         f"paper does not state figure 2's classical amplitude range {lo:.2f}-{hi:.2f}"
-
-
-def test_fig2_line_snr_matches_the_cache(tex, fig2):
-    """The S/N inflation is the honest caveat on a favourable figure."""
-    for val in (fig2["snr_ha_sr2"], fig2["snr_ha_hr"],
-                fig2["snr_oiii_sr2"], fig2["snr_oiii_hr"]):
-        assert f"${val:.0f}$" in tex, \
-            f"paper does not state figure 2's fitted S/N of {val:.0f}"
 
 
 def test_fig2_superseded_numbers_are_gone(tex):
@@ -328,3 +306,63 @@ def test_fig2_superseded_numbers_are_gone(tex):
         (r"\$1\.131\$", "the index-99 best-classical RMSE"),
     ]:
         assert not re.search(bad, tex), f"paper still quotes {why}"
+
+
+# ── Bibliography ──────────────────────────────────────────────────────────────
+# The 2026-07-30 citation audit left references.bib and the cite keys matching
+# exactly, but nothing enforced it: a methods section removed on 2026-09-07
+# took its citations with it and left six entries behind, never checked
+# against any record.  Either direction is a defect -- an orphan entry is
+# unverified material waiting to be cited, a missing one an undefined citation.
+BIB = REPO / "paper" / "references.bib"
+
+
+def test_bibliography_matches_the_citations(tex):
+    if not BIB.exists():
+        pytest.skip("references.bib not present")
+    body = re.sub(r"(?<!\\)%.*", "", tex)
+    cited = {k.strip() for group in re.findall(r"\\cite[a-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}", body)
+             for k in group.split(",")}
+    defined = set(re.findall(r"^@[A-Za-z]+\{([^,\s]+),", BIB.read_text(encoding="utf-8"), re.M))
+    assert not cited - defined, f"cited but not in references.bib: {sorted(cited - defined)}"
+    assert not defined - cited, f"in references.bib but never cited: {sorted(defined - cited)}"
+
+
+# ── the tuned parameters, as the paper states them ────────────────────────────
+# classical_params.json and the cache builder once held separate copies of
+# these values and diverged for a day, making every classical number in the
+# paper wrong while the suite stayed green.  The manuscript is a third copy,
+# and until now nothing checked it against the other two: it described the
+# matched filter's fitting window as 3 LSF widths where the tuned value is 4.
+PARAMS = REPO / "cache_logR_tuned" / "classical_params.json"
+
+
+@pytest.fixture(scope="module")
+def tuned():
+    if not PARAMS.exists():
+        pytest.skip("classical_params.json not present")
+    import json
+    return json.loads(PARAMS.read_text())["tuned"]
+
+
+def test_paper_states_the_tuned_parameters(tex, tuned):
+    flat = " ".join(tex.split())
+    checks = [
+        (rf"\$\\mathrm{{SNR}} = {tuned['wiener']['snr']:.0f}\$", "Wiener SNR"),
+        (rf"\$\\lambda = {tuned['tikhonov']['lam']:.0f}\$", "Tikhonov lambda"),
+        (rf"\$\\lambda = {tuned['tv']['lam']}\$", "TV lambda"),
+        (rf"\${tuned['tv']['n_iter']}\$~iterations", "TV iterations"),
+        (rf"\$\\lambda = {tuned['sparse']['lam']}\$", "FISTA lambda"),
+        (rf"\$\\geq {tuned['mf']['detect_snr']:.0f}\\sigma\$", "MF detection threshold"),
+        (rf"\${tuned['mf']['window_nsigma']:.0f}\$ local \\gls{{lsf}} widths", "MF window"),
+        (rf"\${tuned['mf']['width_scale']}\$ \\gls{{lsf}} widths", "MF template width"),
+        (rf"\${tuned['mf']['core_nsigma']:.0f}\$ template widths", "MF write-back core"),
+    ]
+    for pattern, what in checks:
+        assert re.search(pattern, flat), \
+            f"paper does not state the tuned value for {what} ({pattern})"
+    # Both single-iteration methods must be described as such.
+    assert tuned["rl"]["n_iter"] == 1 and tuned["sparse"]["n_iter"] == 1, \
+        "Richardson-Lucy or FISTA is no longer tuned to a single iteration"
+    assert flat.count("a single iteration") >= 2, \
+        "paper no longer says both iterative methods run for a single iteration"

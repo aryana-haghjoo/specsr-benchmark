@@ -58,8 +58,8 @@ beats cubic interpolation.**
 SR2 leads the raw mean-absolute-error table by 30%, and does it by producing a
 spectrum at 0.54 of the reference's amplitude — absolute error against a noisy
 reference falls when you shrink toward zero, whatever the reconstruction
-quality. On a scale-free metric all nine methods land within 1.2% of each
-other and SR2 ranks eighth of nine. What does survive is sharper and more
+quality. On a scale-free metric all eight methods land within 1.2% of each
+other and SR2 ranks seventh of eight. What does survive is sharper and more
 interesting than a leaderboard: SR2 exceeds the *reference's own* line signal
 to noise on all four diagnostic lines while recovering only 36–53% of true line
 amplitudes, at false-detection rates of 0.30 (Hβ) and 0.44 ([O II]) against
@@ -220,7 +220,7 @@ confirm it reproduces.
 ```
 src/specsrbench/
   paths.py      where inputs and outputs are found
-  methods.py    the nine reconstructions, their names and cache keys
+  methods.py    the eight methods and the reference, their names and cache keys
   metrics.py    MAE, scale-free MAE, amplitude ratio, the guards
   classical.py  the seven classical deconvolvers, on the log R=4000 grid
   data.py       the cache loader every figure shares

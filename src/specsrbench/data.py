@@ -100,10 +100,6 @@ class Cache:
         return out
 
     @cached_property
-    def sr1(self) -> np.ndarray:
-        return np.asarray(self._ml["sr1_mean"], dtype=np.float64)
-
-    @cached_property
     def zhat(self) -> np.ndarray:
         """The redshift head's estimate, as SR2 conditioned on it."""
         return np.asarray(self._ml["zhat"], dtype=np.float64)
@@ -127,7 +123,7 @@ class Cache:
 
     @cached_property
     def fits(self) -> dict[str, np.ndarray]:
-        """Gaussian fit parameters, keyed ``{label}_{line}_{amp,sigma,sn}``."""
+        """Gaussian fit parameters, keyed ``{label}_{line}_{amp,sigma,sn,mu}``."""
         f = self._load("fit_params_cache.npz", rebuild="specsrbench build lines")
         return {k: f[k] for k in f.files}
 

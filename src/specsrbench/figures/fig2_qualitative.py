@@ -11,9 +11,13 @@ recovering structure its own input does not carry.
 
 Favourable to SR2 but not cherry-picked: among the 296 held-out spectra with
 reference [O III] S/N > 20 and the doublet on the grid, SR2's RMSE gain here
-ranks 44th of 296 -- the 85th percentile, 22.9% against a subset median of
-12.4%.  SR2 still inflates the [O III] S/N to 466 against 88 in the reference,
-at an amplitude ratio of 0.27 where the classical methods sit at 0.93-1.15.
+ranks 33rd of 296 -- the 89th percentile, 25.3% against a subset median of
+13.3%.  SR2 still inflates the [O III] S/N to 466 against 88 in the reference,
+at an amplitude ratio of 0.27 where the classical methods sit at 1.00-1.18.
+
+(These figures are the ones test_paper_consistency recomputes; the docstring
+quoted a pre-rebuild set until 2026-09-19, disagreeing with the caption it
+describes.)
 """
 from __future__ import annotations
 
@@ -82,9 +86,16 @@ def build(cache=None, outdir: Path | None = None, i_show: int = I_SHOW) -> Path:
         rmse = float(np.sqrt(np.mean((recon - hr) ** 2)))
         is_sr2 = key == "SR2"
 
+        # The markers were drawn at 0.62 grey on a hairline: against a dense
+        # spectrum a reader could not find them, and the inset band -- 0.14 um
+        # of a 4.3 um axis -- was invisible.  Both are darker and heavier here,
+        # and the band carries edges, so the zoom region can be located at a
+        # glance.  They stay below the data in z-order; only the contrast moved.
         for _lshort, lam_obs in line_obs:
-            ax.axvline(lam_obs, color="0.62", lw=0.65, ls="--", alpha=0.70, zorder=1)
-        ax.axvspan(zoom_lo, zoom_hi, color="0.70", alpha=0.28, zorder=0, lw=0)
+            ax.axvline(lam_obs, color="0.35", lw=1.0, ls="--", alpha=0.95, zorder=1)
+        ax.axvspan(zoom_lo, zoom_hi, color="0.55", alpha=0.42, zorder=0, lw=0)
+        for edge in (zoom_lo, zoom_hi):
+            ax.axvline(edge, color="0.45", lw=0.7, ls="-", alpha=0.85, zorder=1)
         ax.axhline(0, color="0.80", lw=0.4, zorder=0)
         ax.plot(wl, hr, color="0.20", lw=0.55, alpha=0.65, zorder=3)
         ax.plot(wl, recon, color=reg[key].color, lw=0.82, alpha=0.92, zorder=4)

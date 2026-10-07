@@ -72,10 +72,25 @@ def sets_dir() -> Path:
 
 
 def figures_dir() -> Path:
-    """Where figure PDFs are written."""
+    """Where figure PDFs are written.
+
+    ``paper/figures/`` in the private repo, where the manuscript sits beside
+    them and ``\\includegraphics{figures/...}`` resolves relative to
+    ``paper/paper.tex``; plain ``figures/`` everywhere else.
+
+    The condition is the *presence of the manuscript directory*, not its
+    contents, and it is only about where output lands -- nothing here reads
+    the paper source.  ``paper/`` is one of the things
+    ``make_public_release.sh`` refuses to ship, so an installed wheel and a
+    clone of the public repo both take the second branch and write to
+    ``figures/``, which is what their README and docs describe.  Getting this
+    backwards would leave a ``pip install`` user with a directory named after
+    a manuscript they do not have.
+    """
     if (env := os.environ.get("SPECSRBENCH_FIGURES")):
         return Path(env).expanduser().resolve()
-    return repo_root() / "figures"
+    root = repo_root()
+    return root / "paper" / "figures" if (root / "paper").is_dir() else root / "figures"
 
 
 def describe() -> str:

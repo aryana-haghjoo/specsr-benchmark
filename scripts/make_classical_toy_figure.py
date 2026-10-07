@@ -3,7 +3,7 @@
 
     ./venv/bin/python scripts/make_classical_toy_figure.py
 
-Writes ``figures/talk/fig_classical_toy.{pdf,png}``.
+Writes ``paper/figures/talk/fig_classical_toy.{pdf,png}``.
 
 What it shows
 -------------
@@ -39,6 +39,7 @@ be read as a performance claim.
 """
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import matplotlib
@@ -51,8 +52,15 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 from scipy.signal import fftconvolve, find_peaks  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
-OUT = REPO / "figures" / "talk"
 from specsrbench import classical as C  # noqa: E402
+from specsrbench import paths  # noqa: E402
+
+# Talk slides live beside the paper figures, wherever those are: ``paper/
+# figures/talk/`` in the manuscript repo, ``figures/talk/`` in the public one.
+# Asking ``paths`` rather than spelling it out keeps one rule in one place --
+# a second hardcoded copy would create a stray ``paper/`` for anyone who
+# pip-installed the package and has no manuscript.
+OUT = paths.figures_dir() / "talk"
 
 # ── palette: the colours the results slides already use ──────────────────────
 CUBIC, WIENER, TIKH = "deeppink", "tomato", "forestgreen"
@@ -410,6 +418,18 @@ def main():
     for ext in ("pdf", "png"):
         _FIG.savefig(OUT / f"fig_classical_toy.{ext}", facecolor="white")
     print(f"wrote {OUT}/fig_classical_toy.[pdf,png]")
+
+    # The PNG is also the README's header image, and the README ships while
+    # OUT does not -- so a second copy has to exist inside the public tree.
+    # Written here rather than copied by hand because a hand copy is exactly
+    # the kind of drift this project keeps paying for: the tuned parameters
+    # and the tutorial sample each diverged from their original once, and
+    # nothing noticed until the numbers were already wrong. Regenerating the
+    # slide regenerates the README's copy in the same run.
+    readme_copy = REPO / "docs" / "_static" / "fig_classical_toy.png"
+    readme_copy.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(OUT / "fig_classical_toy.png", readme_copy)
+    print(f"wrote {readme_copy}")
 
 
 if __name__ == "__main__":

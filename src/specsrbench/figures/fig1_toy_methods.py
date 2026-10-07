@@ -1,7 +1,7 @@
 """Figure 1 -- the eight methods on a 1D toy, where the truth is known exactly.
 
 A close doublet the LSF blends into one blob, plus a weak isolated line, at
-sigma_LSF = 8 px and a peak S/N of ~12.  Every method in the paper is run on
+sigma_LSF = 8 px and a peak S/N of ~9.  Every method in the paper is run on
 it, scored against the truth it was generated from, and drawn.
 
 The toy exists because on real spectra there is no ground truth: the grating
@@ -63,7 +63,7 @@ METHOD_COLORS = {
     "Richardson-Lucy (30 it)": "steelblue",
     "Wavelet Sparse":          "goldenrod",
     "Matched filter":          "darkorchid",
-    "SR1-CNN (toy-trained)":   "darkorange",
+    "1D CNN (toy-trained)":    "darkorange",
 }
 
 
@@ -183,7 +183,7 @@ def m_matched_filter(y, lsf, peak_centers, peak_sigma):
 
 # ── the learned panel ─────────────────────────────────────────────────────────
 def train_toy_cnn(lsf, *, device=None, deterministic: bool = False, quiet: bool = False):
-    """A small SR1-shaped 1D ResNet, trained on fresh draws from the generator."""
+    """A small 1D ResNet, trained on fresh draws from the generator."""
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
@@ -202,7 +202,7 @@ def train_toy_cnn(lsf, *, device=None, deterministic: bool = False, quiet: bool 
         def forward(self, x):
             return x + self.c2(F.relu(self.c1(F.relu(x))))
 
-    class TinySR1(nn.Module):
+    class TinyCNN(nn.Module):
         def __init__(self, ch=32, n_blocks=4):
             super().__init__()
             self.stem = nn.Conv1d(1, ch, 7, padding=3)
@@ -230,7 +230,7 @@ def train_toy_cnn(lsf, *, device=None, deterministic: bool = False, quiet: bool 
         return (torch.from_numpy(observed).unsqueeze(1).to(dev),
                 torch.from_numpy(truths).to(dev))
 
-    model = TinySR1().to(dev)
+    model = TinyCNN().to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=2e-3)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=N_ITERS)
 
@@ -250,7 +250,7 @@ def train_toy_cnn(lsf, *, device=None, deterministic: bool = False, quiet: bool 
 
     n_params = sum(p.numel() for p in model.parameters())
     if not quiet:
-        print(f"\nTrained TinySR1 ({n_params:,} parameters) on {N_ITERS} iters "
+        print(f"\nTrained TinyCNN ({n_params:,} parameters) on {N_ITERS} iters "
               f"of fresh batches, on {dev.type}.")
 
     def infer(y):
@@ -311,7 +311,7 @@ def build(cache=None, outdir: Path | None = None, *,
         "Richardson-Lucy (30 it)": m_richardson_lucy(observed, lsf, n_iter=30),
         "Wavelet Sparse":          m_sparse_wavelet(observed, lsf),
         "Matched filter":          m_matched_filter(observed, lsf, peak_centers, peak_sigma),
-        "SR1-CNN (toy-trained)":   infer(observed),
+        "1D CNN (toy-trained)":    infer(observed),
     }
     for name, arr in results.items():
         assert arr.shape == (N,), f"{name} returned shape {arr.shape}"
@@ -332,9 +332,9 @@ def build(cache=None, outdir: Path | None = None, *,
 
     # Light tint and a bold title on the learned panel: it is the comparison
     # the paper is about, and eight identical panels bury it.
-    sr1_ax = axes.flat[list(results).index("SR1-CNN (toy-trained)")]
-    sr1_ax.set_facecolor((1.00, 0.97, 0.93))
-    sr1_ax.set_title(sr1_ax.get_title(), fontweight="bold")
+    cnn_ax = axes.flat[list(results).index("1D CNN (toy-trained)")]
+    cnn_ax.set_facecolor((1.00, 0.97, 0.93))
+    cnn_ax.set_title(cnn_ax.get_title(), fontweight="bold")
 
     for ax in axes[-1]:
         ax.set_xlabel("pixel")

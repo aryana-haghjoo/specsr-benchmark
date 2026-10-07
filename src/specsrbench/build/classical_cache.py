@@ -279,8 +279,8 @@ def main(argv=None) -> int:
 
     nrm = lambda a: (np.asarray(a, dtype=np.float64) - HI_M) / HI_S  # noqa: E731
     rows = [stats(n, a) for n, a in [
+        # SR2 only: SR1 is an intermediate stage of the pipeline, not a method.
         ("ML (SR2)", nrm(E["sr2"])),
-        ("ML (SR1)", nrm(E["sr1"])),
         ("Wiener", wiener),
         ("Wiener + TV", tv),
         ("Wiener + MF", mf),

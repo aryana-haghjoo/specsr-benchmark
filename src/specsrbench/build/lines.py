@@ -100,8 +100,15 @@ def _g(x, amp, mu, sig, c0, c1):
 
 
 def fit_gauss(x, y, mu0, fit_halfwin=0.25, sb_gap=0.03, sb_width=0.12,
-              core_halfwin=0.05, sigma_hi=0.12, mu_bounds_half=0.01):
-    """(amp, sigma, S/N) or (nan, nan, nan).  Lower sigma bound tracks the grid."""
+              core_halfwin=0.05, sigma_hi=0.12, mu_bounds_half=0.01,
+              return_mu=False):
+    """(amp, sigma, S/N) or (nan, nan, nan).  Lower sigma bound tracks the grid.
+
+    With ``return_mu`` the fitted centre is appended.  It is bounded to
+    ``mu0 +- mu_bounds_half`` (10 nm), so a centre offset between two fits can
+    never exceed 20 nm, and one at the bound means the fit found no line there.
+    """
+    nan = (np.nan,) * (4 if return_mu else 3)
     fit_m = (x >= mu0 - fit_halfwin) & (x <= mu0 + fit_halfwin)
     core_m = np.abs(x - mu0) <= core_halfwin
     sb_m = ((np.abs(x - mu0) >= sb_gap) & (np.abs(x - mu0) <= sb_gap + sb_width)
@@ -109,7 +116,7 @@ def fit_gauss(x, y, mu0, fit_halfwin=0.25, sb_gap=0.03, sb_width=0.12,
     xx, yy = x[fit_m], y[fit_m]
     y_sb = y[sb_m & np.isfinite(y)]
     if xx.size < 15 or y_sb.size < 30:
-        return np.nan, np.nan, np.nan
+        return nan
     sc = max(1.4826 * np.median(np.abs(y_sb - np.median(y_sb))), 1e-3)
     c0e = float(np.median(y_sb))
     dx = float(np.median(np.diff(xx))) if xx.size > 1 else 0.002
@@ -126,9 +133,10 @@ def fit_gauss(x, y, mu0, fit_halfwin=0.25, sb_gap=0.03, sb_width=0.12,
         popt, _ = curve_fit(_g, xx, yy, p0=[amp0, mu0, sig0, c0e, 0.0],
                             bounds=(lo, hi), sigma=np.full_like(xx, sc),
                             absolute_sigma=True, maxfev=5000)
-        return float(popt[0]), float(popt[2]), abs(float(popt[0])) / sc
+        out = (float(popt[0]), float(popt[2]), abs(float(popt[0])) / sc)
+        return out + (float(popt[1]),) if return_mu else out
     except Exception:
-        return np.nan, np.nan, np.nan
+        return nan
 
 
 def _task(job):
@@ -136,17 +144,18 @@ def _task(job):
     amps = np.full(N, np.nan)
     sigs = np.full(N, np.nan)
     sns = np.full(N, np.nan)
+    mus = np.full(N, np.nan)
     clipped = 0
     for i in range(N):
         mu0 = lam0 * (1.0 + Z[i])
-        amps[i], sigs[i], sns[i] = fit_gauss(WAVE, arr[i], mu0)
+        amps[i], sigs[i], sns[i], mus[i] = fit_gauss(WAVE, arr[i], mu0, return_mu=True)
         if np.isfinite(sigs[i]):
             j = int(np.argmin(np.abs(WAVE - mu0)))
             fit_m = (WAVE >= mu0 - 0.25) & (WAVE <= mu0 + 0.25)
             dx = float(np.median(np.diff(WAVE[fit_m]))) if fit_m.sum() > 1 else DPIX[j]
             if sigs[i] <= 0.5 * dx * 1.01 or sigs[i] >= 0.12 * 0.99:
                 clipped += 1
-    return label, lname, amps, sigs, sns, clipped
+    return label, lname, amps, sigs, sns, mus, clipped
 
 
 def main(argv=None) -> int:
@@ -185,7 +194,6 @@ def main(argv=None) -> int:
     np.save(OUT / "wl_low.npy", WAVE)
 
     np.savez(OUT / "ml_inference_cache.npz",
-             sr1_mean=(np.asarray(E["sr1"], dtype=np.float64) - HI_M) / HI_S,
              sr2_mean=(np.asarray(E["sr2"], dtype=np.float64) - HI_M) / HI_S,
              zhat=np.asarray(E["z_pred"], dtype=np.float64))
 
@@ -232,9 +240,10 @@ def main(argv=None) -> int:
     snr_label = dict(LABELS)
     fit_data, snr_data = {}, {}
     print(f"  {'method':13s} {'line':10s}  valid   median S/N   sigma at bound")
-    for label, lname, amps, sigs, sns, clipped in results:
+    for label, lname, amps, sigs, sns, mus, clipped in results:
         fit_data[f"{label}_{lname}_amp"] = amps
         fit_data[f"{label}_{lname}_sigma"] = sigs
+        fit_data[f"{label}_{lname}_mu"] = mus
         fit_data[f"{label}_{lname}_sn"] = sns
         snr_data[f"{snr_label[label]}_{lname}"] = sns
         nv = int(np.isfinite(sns).sum())

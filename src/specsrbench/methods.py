@@ -1,4 +1,4 @@
-"""The nine reconstructions, their display names, and the keys they are cached under.
+"""The eight methods and the reference: display names and the keys they are cached under.
 
 Three different naming schemes meet in this project and none of them can be
 retired without invalidating a shipped cache:
@@ -18,7 +18,7 @@ Display *labels* still vary by figure -- figure 2 writes ``LR (cubic)`` and
 ``Wiener + TV`` where figure 3 writes ``Cubic (LR)`` and ``TV`` -- and figure 3
 recolours two methods to keep them legible against its diverging colour map.
 Those variations are real and are preserved by :func:`registry` overrides rather
-than by nine more copies of the table.
+than by more copies of the table.
 """
 from __future__ import annotations
 

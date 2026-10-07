@@ -220,15 +220,19 @@ def test_figure6_bins_are_equal_count(cache):
     Equal-width bins would put almost everything in the first two and leave the
     rest reporting the error of a handful of galaxies.
 
-    The bins are half-open ``[lo, hi)`` and the top edge is the 100th
-    percentile, so the single highest-redshift galaxy falls outside the last
-    bin: 571 of 572 are plotted.  Asserted rather than fixed, because the
-    published figure is drawn this way and one galaxy of 572 does not move any
-    bin's median.
+    The top edge is inclusive.  Until 2026-09-18 the bins were half-open
+    ``[lo, hi)`` with the top edge at the 100th percentile, so the single
+    highest-redshift galaxy fell outside the last bin and 571 of 572 were
+    plotted.  Each bin is drawn at its median redshift: at its midpoint the top
+    bin (z = 5.0-13.9, three quarters of it below z = 7.1) sat at z = 9.4.
     """
     from specsrbench.data import load_cache
     from specsrbench.figures.fig6_redshift_mae import compute
 
-    _labels, counts, _mae, _mids, _edges = compute(load_cache(CACHE))
-    assert sum(counts) == 571, f"expected 571 binned (one at the top edge): {counts}"
+    r = compute(load_cache(CACHE))
+    counts = r["counts"]
+    assert sum(counts) == 572, f"expected all 572 binned: {counts}"
     assert max(counts) - min(counts) <= 1, f"bins are not equal-count: {counts}"
+    edges, med = r["edges"], r["z_median"]
+    assert all(lo <= m <= hi for lo, m, hi in zip(edges[:-1], med, edges[1:])), \
+        "a bin's median redshift lies outside the bin"

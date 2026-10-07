@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import numpy as np
 
-__all__ = ["zscore", "mae", "mae_scalefree", "std_ratio", "rmse", "bias",
+__all__ = ["zscore", "mae", "mae_by_spectrum", "mae_scalefree",
+           "mae_scalefree_by_spectrum", "std_ratio", "rmse", "bias",
            "bootstrap_std", "fwhm_from_sigma", "global_stats"]
 
 #: Amplitude guard band.  Outside it a reconstruction is shrinking toward zero
@@ -55,19 +56,28 @@ def std_ratio(pred, truth, mask) -> float:
             / float(np.nanstd(np.where(mask, truth, np.nan))))
 
 
+def mae_by_spectrum(pred, truth, mask) -> np.ndarray:
+    """Per-spectrum mean absolute error; ``mae`` is the mean of this."""
+    return np.nanmean(np.abs(_masked_diff(pred, truth, mask)), axis=1)
+
+
+def mae_scalefree_by_spectrum(pred, truth, mask) -> np.ndarray:
+    """Per-spectrum MAE after rescaling by that spectrum's optimal gain."""
+    p = np.asarray(pred, dtype=np.float64)
+    num = np.nansum(np.where(mask, p * truth, np.nan), axis=1)
+    den = np.nansum(np.where(mask, p * p, np.nan), axis=1)
+    k = np.where(den > 0, num / den, 1.0)[:, None]
+    return np.nanmean(np.abs(np.where(mask, p * k - truth, np.nan)), axis=1)
+
+
 def mae_scalefree(pred, truth, mask) -> float:
     """MAE after rescaling each spectrum by its own least-squares optimal gain.
 
     Invariant under any global rescale of ``pred`` by construction, which is
     the entire point: shrinkage cannot improve it.  This is the metric on which
-    SR2 ranks eighth of nine while leading the raw-MAE table by 30%.
+    SR2 ranks seventh of eight while leading on raw MAE by 30%.
     """
-    p = np.asarray(pred, dtype=np.float64)
-    num = np.nansum(np.where(mask, p * truth, np.nan), axis=1)
-    den = np.nansum(np.where(mask, p * p, np.nan), axis=1)
-    k = np.where(den > 0, num / den, 1.0)[:, None]
-    return float(np.nanmean(np.nanmean(
-        np.abs(np.where(mask, p * k - truth, np.nan)), axis=1)))
+    return float(np.nanmean(mae_scalefree_by_spectrum(pred, truth, mask)))
 
 
 def rmse(pred, truth, mask) -> float:

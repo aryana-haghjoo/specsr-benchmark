@@ -10,6 +10,11 @@ specsrbench figures mae              # or by name
 specsrbench figures all --outdir /tmp/check    # somewhere other than figures/
 ```
 
+Output lands in `figures/` next to the cache. `specsrbench paths` prints the
+directory that will actually be used before anything is written, and
+`SPECSRBENCH_FIGURES` overrides it for a whole session the way `--outdir`
+overrides it for one command.
+
 | # | name | what it shows | output |
 |---|---|---|---|
 | 1 | `toy` | every method on a 1D toy where the truth is known | `fig_toy_1d.pdf` |
@@ -70,7 +75,7 @@ every metric on that toy by a wide margin. Pass `deterministic=True` to trade
 some speed for a fixed result.
 
 ```{warning}
-Rebuilding overwrites `figures/*.pdf`. The content is deterministic but the PDF
-metadata is not, so a rebuild shows up as a diff even when nothing changed.
-Use `--outdir` when you only want to check.
+Rebuilding overwrites the figure PDFs in place. The content is deterministic
+but the PDF metadata is not, so a rebuild shows up as a diff even when nothing
+changed. Use `--outdir` when you only want to check.
 ```

@@ -93,7 +93,6 @@ def build_eval_set(predictions, out: Path) -> dict:
         # A low-resolution pixel is real if it is finite and not exactly zero;
         # the resampling writes hard zeros outside the prism's coverage.
         "valid_low": np.isfinite(flux_low) & (flux_low != 0),
-        "sr1": np.asarray(P["sr1"], dtype=np.float64),
         "sr2": np.asarray(P["sr2"], dtype=np.float64),
         "z_true": np.asarray(P["z_true"], dtype=np.float64),
         "z_pred": np.asarray(P["z_pred"], dtype=np.float64),

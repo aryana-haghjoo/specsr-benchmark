@@ -15,8 +15,8 @@ held-out JWST/NIRSpec prism spectra from JADES.
 **At the pixel level, no method beats cubic interpolation.**
 
 SR2 leads the raw mean-absolute-error table by 30%, and does it by producing a
-spectrum at 0.54 of the reference's amplitude. On a scale-free metric all nine
-methods land within 1.2% of each other and SR2 ranks *eighth of nine*.
+spectrum at 0.54 of the reference's amplitude. On a scale-free metric all eight
+methods land within 1.2% of each other and SR2 ranks *seventh of eight*.
 
 What survives is more interesting than a leaderboard: SR2 exceeds the
 reference's **own** line signal-to-noise on all four diagnostic lines while
