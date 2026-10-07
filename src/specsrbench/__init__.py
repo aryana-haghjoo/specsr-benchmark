@@ -17,6 +17,6 @@ The second command needs the raw JADES DR4 tree; the first does not.  See
 """
 from __future__ import annotations
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = ["__version__"]
