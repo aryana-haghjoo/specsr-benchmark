@@ -18,7 +18,7 @@ Six stages, each consuming what the one before it wrote:
 | `lsf` | raw JADES `x1d`, line fits | `sigma_pix_measured.npy` | raw JADES, astropy |
 | `tune` | tune set, calib set, kernel | `classical_params.json` | — |
 | `classical` | eval set, kernel, parameters | the six classical caches | — |
-| `lines` | every reconstruction | fits, S/N, `summary_final.csv` | — |
+| `lines` | every reconstruction | fits, S/N, integrated line fluxes, `summary_final.csv` | — |
 
 Any stage takes `--dry-run`, which prints what it would read and write and does
 nothing.

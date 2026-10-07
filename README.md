@@ -65,6 +65,8 @@ to noise on all four diagnostic lines while recovering only 36–53% of true lin
 amplitudes, at false-detection rates of 0.30 (Hβ) and 0.44 ([O II]) against
 ≤ 0.09 for any classical method.
 
+Line flux ratios fare no better. Measured from integrated Gaussian fluxes, with Hβ and [O III] fitted jointly, no method improves on the interpolated prism spectrum; SR2's ratios are unbiased in the median but scatter about twice as widely as the reference's.
+
 Getting there took four separate metric traps, each of which had to be closed
 before the benchmark meant anything. They are documented in
 [`docs/GUARDS.md`](docs/GUARDS.md), and they are the part of this repository
@@ -133,7 +135,7 @@ specsrbench build sets          # eval / tune / calib sets, galaxy-disjoint
 specsrbench build lsf --jades-root <JADES DR4>   # measure the instrument LSF
 specsrbench build tune          # search the classical parameters under four guards
 specsrbench build classical     # the classical reconstructions
-specsrbench build lines         # Gaussian line fits, S/N, the summary table
+specsrbench build lines         # Gaussian line fits, S/N, line fluxes, the summary table
 ```
 
 `specsrbench build all` runs them in order. `--dry-run` on any stage prints

@@ -11,7 +11,7 @@ license: MIT
 doi: "10.5281/zenodo.22104971"
 repository-code: "https://github.com/aryana-haghjoo/specsr-benchmark"
 url: "https://aryana-haghjoo.github.io/specsr-benchmark/"
-version: 0.2.0
+version: 0.2.1
 date-released: "2026-10-07"
 keywords:
   - astronomy
@@ -39,14 +39,6 @@ authors:
     given-names: Nima
     orcid: "https://orcid.org/0000-0003-3691-937X"
     affiliation: "IPAC, California Institute of Technology"
-  - family-names: "de la Vega"
-    given-names: Alexander
-    orcid: "https://orcid.org/0000-0002-6219-5558"
-    affiliation: "Department of Physics and Astronomy, University of California, Riverside"
-  - family-names: Nayyeri
-    given-names: Hooshang
-    orcid: "https://orcid.org/0000-0001-8242-9983"
-    affiliation: "Amazon"
   - family-names: Sattari
     given-names: Zahra
     orcid: "https://orcid.org/0000-0002-0364-1159"

@@ -22,6 +22,8 @@ What survives is more interesting than a leaderboard: SR2 exceeds the
 reference's **own** line signal-to-noise on all four diagnostic lines while
 recovering only 36–53% of true line amplitudes, at false-detection rates of
 0.30 (Hβ) and 0.44 ([O II]) against ≤ 0.09 for anything classical.
+
+Line flux ratios fare no better. Measured from integrated Gaussian fluxes, with Hβ and [O III] fitted jointly, no method improves on the interpolated prism spectrum; SR2's ratios are unbiased in the median but scatter about twice as widely as the reference's.
 ```
 
 ## Quickstart

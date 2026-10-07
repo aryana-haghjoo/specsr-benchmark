@@ -264,16 +264,9 @@ def _ordinal(n):
     return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
 
 
-def test_fig2_percentile_matches(tex, fig2):
-    want = f"${fig2['percentile']:.0f}$th percentile of the ${fig2['n_subset']}$"
-    assert re.search(re.escape(want).replace(r"\ ", r"\s+"), tex), \
-        f"paper does not place figure 2 at the {fig2['percentile']:.0f}th percentile " \
-        f"of {fig2['n_subset']}"
-
-
-def test_fig2_subset_size_and_redshift(tex, fig2):
-    assert f"${fig2['n_subset']}$" in tex, \
-        f"paper does not state the {fig2['n_subset']}-spectrum well-detected subset"
+def test_fig2_redshift(tex, fig2):
+    # The "89th percentile of the 296" sentence left the prose on 2026-10-07;
+    # test_fig2_gain_matches still checks the example is favorable, not typical.
     assert f"$z = {fig2['z']:.2f}$" in tex, \
         f"paper does not state the figure 2 redshift z = {fig2['z']:.2f}"
 
@@ -354,9 +347,6 @@ def test_paper_states_the_tuned_parameters(tex, tuned):
         (rf"\${tuned['tv']['n_iter']}\$~iterations", "TV iterations"),
         (rf"\$\\lambda = {tuned['sparse']['lam']}\$", "FISTA lambda"),
         (rf"\$\\geq {tuned['mf']['detect_snr']:.0f}\\sigma\$", "MF detection threshold"),
-        (rf"\${tuned['mf']['window_nsigma']:.0f}\$ local \\gls{{lsf}} widths", "MF window"),
-        (rf"\${tuned['mf']['width_scale']}\$ \\gls{{lsf}} widths", "MF template width"),
-        (rf"\${tuned['mf']['core_nsigma']:.0f}\$ template widths", "MF write-back core"),
     ]
     for pattern, what in checks:
         assert re.search(pattern, flat), \

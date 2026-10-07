@@ -27,7 +27,7 @@ import time
 from multiprocessing import Pool
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, least_squares
 
 from .. import classical as C
 from .. import paths
@@ -139,6 +139,122 @@ def fit_gauss(x, y, mu0, fit_halfwin=0.25, sb_gap=0.03, sb_width=0.12,
         return nan
 
 
+C_KMS = 299792.458
+# H-beta, [O III] 4959 and [O III] 5007: three lines within 9000 km/s that the
+# prism merges into one feature.
+HBETA_OIII_REST_UM = (0.486133, 0.495891, 0.500684)
+#: The lines whose flux comes from the joint fit, and their column in it.
+JOINT_LINES = {"Hbeta": 0, "OIII5007": 2}
+
+
+def fit_hbeta_oiii(wavelength, flux, z, *, window_kms: float = 20000.0,
+                   sigma_lo_kms: float = 40.0, sigma_hi_kms: float = 3000.0):
+    """Joint fit of H-beta and the [O III] doublet: three Gaussians, one width.
+
+    The model ``specsr.linefit.fit_hbeta_oiii`` uses for paper 1's line-flux
+    figure, ported so the flux of a line means the same thing in both papers.
+    A single Gaussian cannot measure the *flux* of these lines at prism
+    resolution: centred on H-beta it widens until it holds the [O III] lines as
+    well, and centred on 5007 it absorbs 4959.  Fitting the three together at
+    fixed centres with a shared velocity width assigns the blended flux to the
+    right line.  Amplitudes are bounded non-negative.
+
+    Returns ``(amps, sigmas_um)``, each of length three in the order H-beta,
+    4959, 5007, or ``None`` when the lines fall off the grid, the window holds
+    a non-finite pixel, or the fit fails.
+    """
+    centres = np.asarray(HBETA_OIII_REST_UM) * (1.0 + float(z))
+    lam0 = 0.5 * (centres[1] + centres[2])
+    v_all = (wavelength - lam0) / lam0 * C_KMS
+    m = np.abs(v_all) <= window_kms
+    if centres[0] < wavelength[0] or centres[2] > wavelength[-1] or m.sum() < 30:
+        return None
+    v, y = v_all[m], flux[m]
+    if not np.isfinite(y).all():
+        return None
+    vc = (centres - lam0) / lam0 * C_KMS
+
+    def model(p):
+        g = p[0] + p[1] * v
+        for amp, v0 in zip(p[3:], vc, strict=True):
+            g = g + amp * np.exp(-0.5 * ((v - v0) / p[2]) ** 2)
+        return g
+
+    med = float(np.median(y))
+    amp0 = max(float(np.max(y) - med), 1e-6)
+    p0 = [med, 0.0, 300.0, amp0 * 0.3, amp0 / 3.33, amp0]
+    lo = [-np.inf, -np.inf, sigma_lo_kms, 0.0, 0.0, 0.0]
+    hi = [np.inf, np.inf, sigma_hi_kms, np.inf, np.inf, np.inf]
+    r = least_squares(lambda p: model(p) - y, p0, bounds=(lo, hi),
+                      max_nfev=4000, method="trf")
+    if not r.success:
+        return None
+    # An amplitude pinned at its lower bound comes back as a denormal-sized
+    # positive number, not as zero; it is a non-detection and is returned as one.
+    amps = np.array([a if a > 1e-4 * amp0 else 0.0 for a in r.x[3:]])
+    return amps, float(r.x[2]) / C_KMS * centres
+
+
+def joint_fits(wave, arr, z):
+    """``(amps, sigmas_um)``, each ``(n, 3)``, from :func:`fit_hbeta_oiii`."""
+    amps = np.full((len(z), 3), np.nan)
+    sigs = np.full((len(z), 3), np.nan)
+    for i in range(len(z)):
+        r = fit_hbeta_oiii(wave, arr[i], z[i])
+        if r is not None:
+            amps[i], sigs[i] = r
+    return amps, sigs
+
+
+def line_fluxes(label, fit_data, joint):
+    """Integrated flux of each diagnostic line, ``sqrt(2 pi) * amp * sigma``.
+
+    H-alpha and [O II] take the single-Gaussian fit already in ``fit_data``;
+    H-beta and [O III] 5007 take the joint fit.  ``_flux_amp`` is the amplitude
+    of whichever fit supplied the flux, which is what a detection cut on the
+    flux measurement has to be applied to.
+    """
+    amps, sigs = joint
+    out = {}
+    for lname, _ in LINES:
+        if lname in JOINT_LINES:
+            a, sg = amps[:, JOINT_LINES[lname]], sigs[:, JOINT_LINES[lname]]
+        else:
+            a, sg = fit_data[f"{label}_{lname}_amp"], fit_data[f"{label}_{lname}_sigma"]
+        out[f"{label}_{lname}_flux"] = np.sqrt(2.0 * np.pi) * a * sg
+        out[f"{label}_{lname}_flux_amp"] = np.asarray(a, dtype=np.float64).copy()
+    return out
+
+
+def _joint_task(job):
+    label, arr = job
+    return label, joint_fits(WAVE, arr, Z)
+
+
+def method_arrays():
+    """Every reconstruction, and the reference, keyed by its fit-cache label."""
+    return {
+        "Cubic (LR)": X_LOW,
+        "Wiener": np.load(OUT / "wiener_cache.npy").astype(np.float64),
+        "Tikhonov": np.load(OUT / "tikhonov_cache.npy").astype(np.float64),
+        "TV": np.load(OUT / "tv_cache.npy").astype(np.float64),
+        "R-L": np.load(OUT / "rl_cache.npy").astype(np.float64),
+        "Sparse": np.load(OUT / "sparse_cache.npy").astype(np.float64),
+        "Wiener + MF": np.load(OUT / "mf_cache.npy").astype(np.float64),
+        "ML (SR2)": (np.asarray(E["sr2"], dtype=np.float64) - HI_M) / HI_S,
+        "HR target": X_HIGH,
+    }
+
+
+def add_line_fluxes(fit_data, arrays):
+    """Add the ``_flux`` / ``_flux_amp`` arrays for every method to ``fit_data``."""
+    with Pool(NPROC) as p:
+        joint = dict(p.map(_joint_task, [(lab, arrays[lab]) for lab, _ in LABELS]))
+    for lab, _ in LABELS:
+        fit_data.update(line_fluxes(lab, fit_data, joint[lab]))
+    return fit_data
+
+
 def _task(job):
     label, lname, lam0, arr = job
     amps = np.full(N, np.nan)
@@ -218,17 +334,7 @@ def main(argv=None) -> int:
     print("  wrote arrays, ml_inference_cache.npz, flux_high_err.npz")
 
     # ── 2. line fits for every method x line ─────────────────────────────────
-    arrays = {
-        "Cubic (LR)": X_LOW,
-        "Wiener": np.load(OUT / "wiener_cache.npy").astype(np.float64),
-        "Tikhonov": np.load(OUT / "tikhonov_cache.npy").astype(np.float64),
-        "TV": np.load(OUT / "tv_cache.npy").astype(np.float64),
-        "R-L": np.load(OUT / "rl_cache.npy").astype(np.float64),
-        "Sparse": np.load(OUT / "sparse_cache.npy").astype(np.float64),
-        "Wiener + MF": np.load(OUT / "mf_cache.npy").astype(np.float64),
-        "ML (SR2)": (np.asarray(E["sr2"], dtype=np.float64) - HI_M) / HI_S,
-        "HR target": X_HIGH,
-    }
+    arrays = method_arrays()
     jobs = [(lab, ln, l0, arrays[lab]) for lab, _ in LABELS for ln, l0 in LINES]
     print(f"\n  fitting {len(jobs)} method x line combinations "
           f"({len(jobs) * N:,} Gaussian fits)...")
@@ -250,6 +356,9 @@ def main(argv=None) -> int:
         print(f"  {label:13s} {lname:10s} {nv:4d}/{N}   {np.nanmedian(sns):8.2f}   "
               f"{clipped:4d} ({100.0 * clipped / max(nv, 1):.1f}%)")
 
+    # Integrated fluxes, with H-beta and [O III] from a joint fit.  The flux
+    # ratios of section 4.5 are built from these, not from the amplitudes.
+    add_line_fluxes(fit_data, arrays)
     np.savez(OUT / "fit_params_cache.npz", **fit_data)
     np.savez(OUT / "snr.npz", **snr_data)
     for m in ("Tikhonov", "TV", "Sparse"):

@@ -122,16 +122,17 @@ def build(cache=None, outdir: Path | None = None) -> Path:
     print(cache.summary())
     r = compute(cache)
     zm, edges = np.asarray(r["z_median"]), r["edges"]
-    x_max = 8.0
+    x_min, x_max = 0.75, 6.25      # the bin medians span 1.1--6.0
 
-    fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True,
+    fig, axes = plt.subplots(3, 1, figsize=(10, 6.6), sharex=True,
                              gridspec_kw={"height_ratios": [3, 2.2, 1.4]})
     for ax in axes:
         for b in range(len(zm)):                       # the bins themselves
             if b % 2 == 0:
-                ax.axvspan(edges[b], min(edges[b + 1], x_max), color="0.93", lw=0, zorder=0)
+                ax.axvspan(max(edges[b], x_min), min(edges[b + 1], x_max),
+                           color="0.93", lw=0, zorder=0)
         for zc, _text in r["line_changes"]:            # where a diagnostic line enters/leaves
-            if 0 < zc < x_max:
+            if x_min < zc < x_max:
                 ax.axvline(zc, color="0.55", ls=":", lw=0.9, zorder=1)
 
     panels = [(axes[0], "mae", "mae_err", "MAE (normalized flux)"),
@@ -145,7 +146,8 @@ def build(cache=None, outdir: Path | None = None) -> Path:
                  label="Reference noise floor")
     axes[0].plot(zm, r["zero"], color="0.45", ls=":", lw=1.6, zorder=2,
                  label="All-zero spectrum")
-    axes[0].legend(fontsize=8, ncol=3, loc="lower right")
+    axes[0].legend(fontsize=8, ncol=5, loc="lower center", bbox_to_anchor=(0.5, 1.01),
+                   frameon=False)
 
     for k in NON_HR:
         axes[2].plot(zm, r["amp"][k], marker="o", ms=4, lw=1.4, color=reg[k].color)
@@ -153,15 +155,15 @@ def build(cache=None, outdir: Path | None = None) -> Path:
     axes[2].set_ylabel(r"$\sigma_\mathrm{method}/\sigma_\mathrm{HR}$")
     axes[2].set_ylim(0, 1.3)
     axes[2].set_xlabel("Redshift (median of each bin)")
-    axes[2].set_xlim(0, x_max)
+    axes[2].set_xlim(x_min, x_max)
 
     for ax, letter in zip(axes, "abc"):
         ax.text(0.008, 0.97, f"({letter})", transform=ax.transAxes, va="top",
                 ha="left", fontsize=10, fontweight="bold")
     top = axes[0].get_ylim()[1]
     for zc, text in r["line_changes"]:
-        if 0 < zc < x_max:
-            axes[0].text(zc + 0.04, top, text, rotation=90, va="top", ha="left",
+        if x_min < zc < x_max:
+            axes[0].text(zc + 0.03, top, text, rotation=90, va="top", ha="left",
                          fontsize=7, color="0.35")
 
     plt.tight_layout()

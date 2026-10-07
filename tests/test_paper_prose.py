@@ -145,8 +145,8 @@ def fdr(fits):
 
 def test_sr2_weak_line_fdr(tex, fdr):
     hb, oii = (fdr["SR2"][LINES.index(k)] for k in ("Hbeta", "OII3727"))
-    assert len(re.findall(rf"reaches \${hb:.2f}\$ and \${oii:.2f}\$", tex)) == 2, \
-        f"results and discussion do not both state the SR2 weak-line FDRs {hb:.2f} / {oii:.2f}"
+    assert len(re.findall(rf"reaches \${hb:.2f}\$ and \${oii:.2f}\$", tex)) == 1, \
+        f"results do not state the SR2 weak-line FDRs {hb:.2f} / {oii:.2f}"
     assert round(oii, 1) == 0.4, "paper says roughly two in five for [O II]"
 
 
@@ -155,17 +155,22 @@ def test_strong_line_fdr_band(tex, fdr):
     arr = np.array([[fdr[k][LINES.index(line)] for line in ("Halpha", "OIII5007")]
                     for k in SNR_KEY])
     band = f"${arr.min():.2f}$--${arr.max():.2f}$"
-    assert tex.count(band) == 2, \
-        f"results and discussion do not both state the strong-line FDR band {band}"
+    assert tex.count(band) == 1, \
+        f"results do not state the strong-line FDR band {band}"
 
 
 def test_no_classical_method_exceeds_the_stated_weak_line_fdr(tex, fdr):
     arr = np.array([fdr[k] for k in CLASSICAL])
     worst = max(arr[:, LINES.index("Hbeta")].max(), arr[:, LINES.index("OII3727")].max())
     stated = [float(v) for v in
-              re.findall(r"No classical method exceeds \$([0-9.]+)\$", tex)
-              + re.findall(r"at\s+most \$([0-9.]+)\$ for any classical", tex)]
-    assert len(stated) == 2, "paper does not bound the classical weak-line FDR twice"
+              re.findall(r"No classical method exceeds \$([0-9.]+)\$", tex)]
+    assert len(stated) == 1, "paper does not bound the classical weak-line FDR"
+    # The discussion no longer repeats the numbers; it says "several times".
+    assert _said(tex, "several times that of any classical method")
+    for line in ("Hbeta", "OII3727"):
+        i = LINES.index(line)
+        assert fdr["SR2"][i] > 3 * arr[:, i].max(), \
+            f"SR2's {line} FDR is not several times the worst classical method's"
     for v in stated:
         assert worst <= v < worst + 0.01, \
             f"paper bounds the classical weak-line FDR at {v}, cache says {worst:.3f}"
@@ -202,33 +207,81 @@ def test_classical_fwhm_bias_range(tex, fwhm_bias):
 
 
 # ── flux ratios (Section 4.5) ─────────────────────────────────────────────────
+# Ratios of *integrated* fluxes, sqrt(2 pi) A sigma, with Hbeta and [O III]
+# from the joint fit (specsrbench.build.lines).  They were ratios of fitted
+# amplitudes until 2026-10-07, which is not what a flux ratio is: SR2 looked
+# biased (its lines are narrower than the classical ones by different factors
+# at Halpha and Hbeta) when in flux it is unbiased and noisy.
+def _flux_ratio_stats(fits, num, den, strict=None):
+    def col(name, line, q):
+        return fits[f"{name}_{line}_{q}"]
+    out = {}
+    for name in SNR_KEY.values():
+        v = np.ones(len(col(name, num, "flux")), dtype=bool)
+        for who in ("HR target", name):
+            for line in (num, den):
+                v &= np.isfinite(col(who, line, "flux")) & (col(who, line, "flux_amp") > 0.01)
+        if strict is not None:
+            v &= strict
+        rm = np.log10(col(name, num, "flux")[v] / col(name, den, "flux")[v])
+        rh = np.log10(col("HR target", num, "flux")[v] / col("HR target", den, "flux")[v])
+        out[name] = {"mae": float(np.mean(np.abs(rm - rh))),
+                     "bias": float(np.median(rm - rh)),
+                     "std": float(np.std(rm)), "std_hr": float(np.std(rh)),
+                     "n": int(v.sum())}
+    return out
+
+
 @pytest.fixture(scope="module")
-def flux_ratio_logmae(fits):
-    def one(num, den):
-        hn, hd = fits[f"HR target_{num}_amp"], fits[f"HR target_{den}_amp"]
-        out = {}
-        for name in SNR_KEY.values():
-            mn, md = fits[f"{name}_{num}_amp"], fits[f"{name}_{den}_amp"]
-            v = (np.isfinite(hn) & np.isfinite(hd) & np.isfinite(mn) & np.isfinite(md)
-                 & (hn > 0.01) & (hd > 0.01) & (mn > 0.01) & (md > 0.01))
-            out[name] = float(np.mean(np.abs(np.log10(mn[v] / md[v])
-                                             - np.log10(hn[v] / hd[v]))))
-        return out
-    return {"balmer": one("Halpha", "Hbeta"), "o3hb": one("OIII5007", "Hbeta")}
+def flux_ratio_stats(fits):
+    return {"balmer": _flux_ratio_stats(fits, "Halpha", "Hbeta"),
+            "o3hb": _flux_ratio_stats(fits, "OIII5007", "Hbeta")}
 
 
-def test_balmer_ranking_is_stated_honestly(tex, flux_ratio_logmae):
-    b, o = flux_ratio_logmae["balmer"], flux_ratio_logmae["o3hb"]
-    order = sorted(b, key=b.get)
-    assert order[:2] == ["Wiener + MF", "ML (SR2)"], \
-        f"paper says SR2 is second on the Balmer decrement behind the MF; order is {order}"
-    assert not re.search(r"nominally the best of any method", tex), \
-        "paper still calls the ML Balmer log-MAE the best of any method"
-    assert _said(tex, "second of the eight methods, behind Wiener\\,+\\,\\gls{mf}")
-    assert max(o, key=o.get) == "ML (SR2)", "SR2 is no longer last on [OIII]/Hb"
-    worse = 100.0 * (o["ML (SR2)"] / o["Cubic (LR)"] - 1.0)
-    assert _said(tex, f"it is last, ${worse:.0f}\\%$ worse than cubic interpolation"), \
-        f"paper does not state SR2 is {worse:.0f}% worse than interpolation on [OIII]/Hb"
+@pytest.fixture(scope="module")
+def flux_ratio_logmae(flux_ratio_stats):
+    return {k: {m: s["mae"] for m, s in v.items()} for k, v in flux_ratio_stats.items()}
+
+
+def _two_worst(d):
+    return set(sorted(d, key=d.get)[-2:])
+
+
+def test_flux_ratio_ranking(tex, flux_ratio_logmae):
+    for key, d in flux_ratio_logmae.items():
+        assert min(d, key=d.get) == "Cubic (LR)", \
+            f"interpolation no longer has the smallest {key} error"
+        assert _two_worst(d) == {"ML (SR2)", "Wiener + MF"}, \
+            f"SR2 and the matched filter are no longer the two worst on {key}"
+    assert _said(tex, "No method improves on the input")
+    assert _said(tex, "are the two worst on both")
+    assert not re.search(r"second of (the )?eight", tex), \
+        "paper still ranks SR2 second on the Balmer decrement (the amplitude-ratio result)"
+    assert "integrated line fluxes" in " ".join(tex.split())
+
+
+def test_flux_ratio_bias_and_scatter(tex, flux_ratio_stats):
+    b, o = flux_ratio_stats["balmer"], flux_ratio_stats["o3hb"]
+    for d in (b, o):
+        assert abs(d["ML (SR2)"]["bias"]) < 0.01, "SR2's median ratio is no longer unbiased"
+    for k in CLASSICAL:
+        bias = b[SNR_KEY[k]]["bias"]
+        assert 0.05 < bias < 0.25, f"{k}'s Balmer offset is {bias:+.2f}, paper says ~0.1 high"
+    assert np.median([b[SNR_KEY[k]]["bias"] for k in CLASSICAL]) == pytest.approx(0.1, abs=0.03)
+    sr2 = b["ML (SR2)"]
+    assert 1.8 < sr2["std"] / sr2["std_hr"] < 2.6, "SR2's Balmer scatter is not about twice"
+    assert f"${sr2['std']:.2f}$ vs.\\ ${sr2['std_hr']:.2f}$" in tex, \
+        f"paper does not state the Balmer widths {sr2['std']:.2f} vs {sr2['std_hr']:.2f}"
+
+
+def test_sr2_integrated_flux_range(tex, fits):
+    vals = []
+    for line in LINES:
+        h, s = fits[f"HR target_{line}_flux"], fits[f"ML (SR2)_{line}_flux"]
+        v = np.isfinite(h * s) & (fits[f"HR target_{line}_sn"] > 5) & (h > 0)
+        vals.append(100.0 * float(np.median(s[v] / h[v])))
+    assert f"integrated flux {min(vals):.0f}--{max(vals):.0f}\\%" in " ".join(tex.split()), \
+        f"paper does not state the SR2 flux range {min(vals):.0f}-{max(vals):.0f}%"
 
 
 def test_flux_ratio_spans(tex, flux_ratio_logmae):
@@ -538,30 +591,19 @@ def flux_ratio_strict(fits, snr):
     conclusions do not depend on that threshold.
     """
     def one(num, den):
-        hn, hd = fits[f"HR target_{num}_amp"], fits[f"HR target_{den}_amp"]
         strict = (snr[f"HR_{num}"] > 5) & (snr[f"HR_{den}"] > 5)
-        out, sizes = {}, {}
-        for name in SNR_KEY.values():
-            mn, md = fits[f"{name}_{num}_amp"], fits[f"{name}_{den}_amp"]
-            v = (np.isfinite(hn) & np.isfinite(hd) & np.isfinite(mn) & np.isfinite(md)
-                 & (hn > 0.01) & (hd > 0.01) & (mn > 0.01) & (md > 0.01) & strict)
-            out[name] = float(np.mean(np.abs(np.log10(mn[v] / md[v])
-                                             - np.log10(hn[v] / hd[v]))))
-            sizes[name] = int(v.sum())
-        return out, sizes
-    b, bn = one("Halpha", "Hbeta")
-    o, on = one("OIII5007", "Hbeta")
-    return {"balmer": b, "o3hb": o, "n": list(bn.values()) + list(on.values())}
+        return {m: s["mae"] for m, s in _flux_ratio_stats(fits, num, den, strict).items()}
+    return {"balmer": one("Halpha", "Hbeta"), "o3hb": one("OIII5007", "Hbeta")}
 
 
 def test_strict_flux_ratio_conclusions_are_unchanged(tex, flux_ratio_strict, flux_ratio_logmae):
     b, o = flux_ratio_strict["balmer"], flux_ratio_strict["o3hb"]
-    assert sorted(b, key=b.get).index("ML (SR2)") + 1 == 2, \
-        "SR2 is no longer second on the Balmer decrement under the strict cut"
-    assert o["ML (SR2)"] > o["Cubic (LR)"], \
-        "SR2 is no longer worse than interpolation on [OIII]/Hb under the strict cut"
-    assert _said(tex, "remains second on the Balmer decrement and worse than "
-                      "interpolation on \\oiii/\\hb")
+    for key, d in flux_ratio_strict.items():
+        assert min(d, key=d.get) == "Cubic (LR)", \
+            f"interpolation is no longer best on {key} under the strict cut"
+        assert _two_worst(d) == {"ML (SR2)", "Wiener + MF"}, \
+            f"SR2 and the matched filter are no longer the two worst on {key} under the strict cut"
+    assert _said(tex, "leaves these conclusions unchanged")
     for name in b:
         assert b[name] < flux_ratio_logmae["balmer"][name] + 0.01 and \
             o[name] < flux_ratio_logmae["o3hb"][name] + 0.01, \

@@ -94,6 +94,49 @@ def test_fit_params_covers_every_method_and_line(fits):
                 assert fits[key].shape == (N_EXPECTED,)
 
 
+def test_line_fluxes_reproduce_from_the_build(fits, reconstructions, x_high, wave, cache):
+    """The integrated fluxes are what the build's own functions return today.
+
+    Halpha and [O II] are the integral of the single Gaussian already in the
+    cache; Hbeta and [O III] come from the joint fit, which is refitted here on
+    a slice.  A flux array left behind by an older fit would fail this.  The
+    tolerance is the optimiser's, not round-off: the fit converges to ~1e-6
+    and that last digit differs between SciPy versions.
+    """
+    from specsrbench.build.lines import JOINT_LINES, joint_fits
+
+    z = np.load(cache / "z_test.npy")
+    sl = slice(0, N_EXPECTED, 12)
+    arrays = dict(reconstructions, **{"HR target": x_high})
+    for m in ("HR target", "Cubic (LR)", "ML (SR2)"):
+        for line_key in LINES:
+            assert fits[f"{m}_{line_key}_flux"].shape == (N_EXPECTED,)
+        for line_key in ("Halpha", "OII3727"):
+            want = np.sqrt(2 * np.pi) * fits[f"{m}_{line_key}_amp"] * fits[f"{m}_{line_key}_sigma"]
+            np.testing.assert_allclose(fits[f"{m}_{line_key}_flux"], want, equal_nan=True)
+        amps, sigs = joint_fits(wave, np.asarray(arrays[m], dtype=np.float64)[sl], z[sl])
+        for line_key, col in JOINT_LINES.items():
+            np.testing.assert_allclose(fits[f"{m}_{line_key}_flux"][sl],
+                                       np.sqrt(2 * np.pi) * amps[:, col] * sigs[:, col],
+                                       rtol=1e-3, atol=1e-9, equal_nan=True)
+
+
+def test_sr2_line_flux_matches_paper_1(fits):
+    """SR2's integrated flux deficit, measured here, is the one paper 1 reports.
+
+    Paper 1 gives median SR2-to-reference flux ratios of 0.72-0.87 for the four
+    lines.  This repo's amplitudes sit near half the reference because SR2's
+    lines are also slightly too broad; a flux far from paper 1's would mean the
+    two papers no longer measure a line the same way.
+    """
+    for line_key, (lo, hi) in {"Halpha": (0.80, 0.92), "Hbeta": (0.80, 0.92),
+                               "OIII5007": (0.80, 0.92), "OII3727": (0.55, 0.80)}.items():
+        h, s = fits[f"HR target_{line_key}_flux"], fits[f"ML (SR2)_{line_key}_flux"]
+        v = np.isfinite(h * s) & (fits[f"HR target_{line_key}_sn"] > 5) & (h > 0)
+        ratio = float(np.median(s[v] / h[v]))
+        assert lo <= ratio <= hi, f"SR2 {line_key} flux ratio is {ratio:.2f}"
+
+
 def test_line_fits_mostly_succeed(fits):
     """A method whose fits collapse is broken even if the array is present."""
     for m in METHODS:
